@@ -1,13 +1,33 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, Fragment } from 'react';
 import { Link } from 'react-router-dom';
 import { Product } from '../types.ts';
 import * as supabaseService from '../services/supabaseService.ts';
+import { useAuth } from '../context/AuthContext.tsx';
 import ProductModal from './ProductModal.tsx';
 import QRCode from './QRCode.tsx';
-import { EditIcon, DeleteIcon, PlusIcon, PackageIcon, DollarSignIcon, BarChartIcon, ExternalLinkIcon } from './Icons.tsx';
+import { EditIcon, DeleteIcon, PlusIcon, PackageIcon, DollarSignIcon, BarChartIcon, ExternalLinkIcon, UserIcon, LogoutIcon } from './Icons.tsx';
 
 // Fix: Import chart components from 'recharts' instead of accessing them from the window object.
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+
+// A simple dropdown menu component
+const DropdownMenu: React.FC<{ trigger: React.ReactNode; children: React.ReactNode }> = ({ trigger, children }) => {
+    const [isOpen, setIsOpen] = useState(false);
+
+    return (
+        <div className="relative">
+            <button onClick={() => setIsOpen(!isOpen)} onBlur={() => setTimeout(() => setIsOpen(false), 200)}>
+                {trigger}
+            </button>
+            {isOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-20">
+                    {children}
+                </div>
+            )}
+        </div>
+    );
+};
+
 
 const StatCard: React.FC<{ title: string; value: string; icon: React.ReactNode }> = ({ title, value, icon }) => (
     <div className="bg-white p-6 rounded-lg shadow-md flex items-center space-x-4">
@@ -46,26 +66,32 @@ const ProductListItem: React.FC<{ product: Product; onEdit: (product: Product) =
 
 const Dashboard: React.FC = () => {
     const [products, setProducts] = useState<Product[]>([]);
+    const [categories, setCategories] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+    const { user, signOut } = useAuth();
 
-    const fetchProducts = useCallback(async () => {
+    const fetchData = useCallback(async () => {
+        if (!user) return;
         setLoading(true);
         try {
-            const data = await supabaseService.getProducts();
-            setProducts(data);
+            const [productsData, categoriesData] = await Promise.all([
+                supabaseService.getProducts(),
+                supabaseService.getCategories()
+            ]);
+            setProducts(productsData);
+            setCategories(categoriesData);
         } catch (error) {
-            console.error("Failed to fetch products:", error);
-            // Here you could add user-facing error handling
+            console.error("Failed to fetch data:", error);
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [user]);
 
     useEffect(() => {
-        fetchProducts();
-    }, [fetchProducts]);
+        fetchData();
+    }, [fetchData]);
 
     const handleOpenModal = (product: Product | null = null) => {
         setEditingProduct(product);
@@ -91,14 +117,14 @@ const Dashboard: React.FC = () => {
         } else {
             await supabaseService.addProduct(productData as Omit<Product, 'id' | 'createdAt'>);
         }
-        fetchProducts();
+        fetchData();
         handleCloseModal();
     };
     
     const handleDeleteProduct = async (id: number) => {
         if (window.confirm('¿Estás seguro de que quieres eliminar este producto?')) {
             await supabaseService.deleteProduct(id);
-            fetchProducts();
+            fetchData();
         }
     };
 
@@ -121,7 +147,7 @@ const Dashboard: React.FC = () => {
         return Object.entries(counts).map(([name, value]) => ({ name, value }));
     }, [products]);
 
-    const storeUrl = `${window.location.origin}${window.location.pathname}#/store`;
+    const storeUrl = `${window.location.origin}${window.location.pathname}#/store/${user?.id}`;
 
     return (
         <div className="min-h-screen bg-brand-light">
@@ -129,7 +155,7 @@ const Dashboard: React.FC = () => {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
                     <h1 className="text-2xl font-bold text-brand-primary">Panel del Mercado</h1>
                     <div className="flex items-center space-x-4">
-                        <Link to="/store" target="_blank" rel="noopener noreferrer" className="bg-white text-brand-primary border border-brand-primary px-4 py-2 rounded-lg shadow-sm hover:bg-brand-primary/5 transition-colors flex items-center space-x-2">
+                        <Link to={`/store/${user?.id}`} target="_blank" rel="noopener noreferrer" className="bg-white text-brand-primary border border-brand-primary px-4 py-2 rounded-lg shadow-sm hover:bg-brand-primary/5 transition-colors flex items-center space-x-2">
                             <ExternalLinkIcon />
                             <span>Ver Tienda</span>
                         </Link>
@@ -137,6 +163,20 @@ const Dashboard: React.FC = () => {
                             <PlusIcon />
                             <span>Añadir Producto</span>
                         </button>
+                        <DropdownMenu trigger={
+                            <button className="h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-300 transition-colors">
+                                <UserIcon />
+                            </button>
+                        }>
+                            <div className="px-4 py-2 border-b">
+                                <p className="text-sm text-gray-700">Conectado como</p>
+                                <p className="text-sm font-medium text-brand-text truncate">{user?.email}</p>
+                            </div>
+                            <button onClick={signOut} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2">
+                                <LogoutIcon />
+                                <span>Cerrar sesión</span>
+                            </button>
+                        </DropdownMenu>
                     </div>
                 </div>
             </header>
@@ -164,8 +204,10 @@ const Dashboard: React.FC = () => {
                                 <tbody>
                                     {loading ? (
                                         <tr><td colSpan={5} className="text-center p-8 text-gray-500">Cargando productos...</td></tr>
-                                    ) : (
+                                    ) : products.length > 0 ? (
                                         products.map(p => <ProductListItem key={p.id} product={p} onEdit={() => handleOpenModal(p)} onDelete={handleDeleteProduct} />)
+                                    ) : (
+                                        <tr><td colSpan={5} className="text-center p-8 text-gray-500">No se encontraron productos. ¡Añade el primero!</td></tr>
                                     )}
                                 </tbody>
                             </table>
@@ -176,7 +218,7 @@ const Dashboard: React.FC = () => {
                            <h2 className="text-xl font-semibold text-brand-text mb-4">Código QR de la Tienda</h2>
                             <div className="flex flex-col items-center">
                                 <QRCode url={storeUrl} />
-                                <p className="text-center mt-4 text-sm text-gray-600">Escanea este código para ver la tienda pública.</p>
+                                <p className="text-center mt-4 text-sm text-gray-600">Escanea este código para ver tu tienda pública.</p>
                                 <a href={storeUrl} target="_blank" rel="noopener noreferrer" className="mt-2 text-brand-primary hover:underline text-xs break-all">
                                     {storeUrl}
                                 </a>
@@ -199,7 +241,7 @@ const Dashboard: React.FC = () => {
                     </div>
                 </div>
 
-                {isModalOpen && <ProductModal product={editingProduct} onClose={handleCloseModal} onSave={handleSaveProduct} />}
+                {isModalOpen && <ProductModal product={editingProduct} categories={categories} onClose={handleCloseModal} onSave={handleSaveProduct} />}
             </main>
         </div>
     );

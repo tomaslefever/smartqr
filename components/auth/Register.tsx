@@ -1,0 +1,94 @@
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext.tsx';
+import { GoogleIcon } from '../Icons.tsx';
+
+const Register: React.FC = () => {
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState<string | null>(null);
+    const { signUp, signInWithGoogle, loading } = useAuth();
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError(null);
+        if (password.length < 6) {
+            setError('La contraseña debe tener al menos 6 caracteres.');
+            return;
+        }
+        const { error } = await signUp(email, password);
+        if (error) {
+            setError(error.message);
+        }
+    };
+    
+    const handleGoogleSignIn = async () => {
+        setError(null);
+        const { error } = await signInWithGoogle();
+        if (error) {
+            setError(error.message);
+        }
+    };
+
+    return (
+        <div>
+            <h2 className="text-2xl font-bold text-brand-text text-center">Crear una Cuenta</h2>
+            <p className="text-center text-gray-600 mt-2 mb-6">Comienza a gestionar tu mercado hoy mismo.</p>
+            
+            {error && <p className="bg-red-100 text-red-700 p-3 rounded-md mb-4 text-sm">{error}</p>}
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                    <label htmlFor="email" className="block text-sm font-medium text-gray-700">Correo Electrónico</label>
+                    <input
+                        type="email"
+                        id="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                        className="mt-1 block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-brand-text focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary sm:text-sm"
+                    />
+                </div>
+                <div>
+                    <label htmlFor="password" className="block text-sm font-medium text-gray-700">Contraseña</label>
+                    <input
+                        type="password"
+                        id="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        className="mt-1 block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-brand-text focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary sm:text-sm"
+                    />
+                </div>
+                <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-brand-primary text-white py-2 px-4 rounded-md shadow-sm text-sm font-medium hover:bg-brand-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary transition-colors disabled:opacity-50"
+                >
+                    {loading ? 'Creando cuenta...' : 'Crear Cuenta'}
+                </button>
+            </form>
+
+            <div className="my-6 flex items-center">
+                <div className="flex-grow border-t border-gray-300"></div>
+                <span className="flex-shrink mx-4 text-gray-500 text-sm">O</span>
+                <div className="flex-grow border-t border-gray-300"></div>
+            </div>
+
+            <button
+                onClick={handleGoogleSignIn}
+                disabled={loading}
+                className="w-full flex justify-center items-center space-x-2 bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary/50 transition-colors disabled:opacity-50"
+            >
+                <GoogleIcon />
+                <span>Registrarse con Google</span>
+            </button>
+
+            <p className="mt-6 text-center text-sm text-gray-600">
+                ¿Ya tienes una cuenta? <Link to="/login" className="font-medium text-brand-primary hover:underline">Inicia sesión</Link>
+            </p>
+        </div>
+    );
+};
+
+export default Register;

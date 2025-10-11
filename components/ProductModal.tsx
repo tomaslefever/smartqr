@@ -4,11 +4,12 @@ import { CloseIcon, UploadIcon } from './Icons.tsx';
 
 interface ProductModalProps {
     product: Product | null;
+    categories: string[];
     onClose: () => void;
     onSave: (product: Product | Omit<Product, 'id' | 'createdAt'>, imageFile: File | null) => void;
 }
 
-const ProductModal: React.FC<ProductModalProps> = ({ product, onClose, onSave }) => {
+const ProductModal: React.FC<ProductModalProps> = ({ product, categories, onClose, onSave }) => {
     const [formData, setFormData] = useState({
         name: '',
         description: '',
@@ -16,6 +17,8 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, onClose, onSave })
         category: '',
         stock: '',
     });
+    const [newCategory, setNewCategory] = useState('');
+    const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [isDragging, setIsDragging] = useState(false);
@@ -29,13 +32,34 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, onClose, onSave })
                 category: product.category,
                 stock: product.stock.toString(),
             });
+            if (product.category && !categories.includes(product.category)) {
+                 setIsAddingNewCategory(true);
+                 setNewCategory(product.category);
+            } else {
+                 setIsAddingNewCategory(false);
+                 setNewCategory('');
+            }
             setImagePreview(product.imageUrl);
+        } else {
+            setFormData(prev => ({ ...prev, category: categories[0] || '' }));
         }
-    }, [product]);
+    }, [product, categories]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+    };
+    
+    const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const value = e.target.value;
+        if (value === '--new--') {
+            setIsAddingNewCategory(true);
+            setFormData(prev => ({ ...prev, category: '' }));
+        } else {
+            setIsAddingNewCategory(false);
+            setNewCategory('');
+            setFormData(prev => ({ ...prev, category: value }));
+        }
     };
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -48,11 +72,19 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, onClose, onSave })
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        const finalCategory = (isAddingNewCategory ? newCategory.trim() : formData.category);
+
+        if (!finalCategory) {
+            alert('Por favor, selecciona o añade una categoría.');
+            return;
+        }
+        
         const productData = {
             name: formData.name,
             description: formData.description,
             price: parseFloat(formData.price),
-            category: formData.category,
+            category: finalCategory,
             stock: parseInt(formData.stock, 10),
             imageUrl: product?.imageUrl ?? '',
         };
@@ -126,8 +158,31 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, onClose, onSave })
                                 <input type="text" name="name" id="name" value={formData.name} onChange={handleChange} required className="mt-1 block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-brand-text focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary sm:text-sm"/>
                             </div>
                              <div>
-                                <label htmlFor="category" className="block text-sm font-medium text-gray-700">Categoría</label>
-                                <input type="text" name="category" id="category" value={formData.category} onChange={handleChange} required className="mt-1 block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-brand-text focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary sm:text-sm"/>
+                                <label htmlFor="category-select" className="block text-sm font-medium text-gray-700">Categoría</label>
+                                <select 
+                                    id="category-select" 
+                                    value={isAddingNewCategory ? '--new--' : formData.category} 
+                                    onChange={handleCategoryChange} 
+                                    className="mt-1 block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-brand-text focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary sm:text-sm"
+                                >
+                                    <option value="" disabled>Selecciona una categoría</option>
+                                    {categories.map(cat => (
+                                        <option key={cat} value={cat}>{cat}</option>
+                                    ))}
+                                    <option value="--new--">Añadir Nueva Categoría...</option>
+                                </select>
+                                {isAddingNewCategory && (
+                                    <input 
+                                        type="text" 
+                                        name="newCategory" 
+                                        id="newCategory" 
+                                        value={newCategory} 
+                                        onChange={(e) => setNewCategory(e.target.value)} 
+                                        placeholder="Nombre de la nueva categoría"
+                                        required 
+                                        className="mt-2 block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-brand-text focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary sm:text-sm"
+                                    />
+                                )}
                             </div>
                              <div className="grid grid-cols-2 gap-4">
                                 <div>

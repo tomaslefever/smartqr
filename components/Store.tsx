@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useParams } from 'react-router-dom';
 import { Product } from '../types.ts';
 import * as supabaseService from '../services/supabaseService.ts';
 import { SearchIcon } from './Icons.tsx';
@@ -22,6 +23,7 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => (
 
 
 const Store: React.FC = () => {
+    const { userId } = useParams<{ userId: string }>();
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -34,9 +36,13 @@ const Store: React.FC = () => {
 
     useEffect(() => {
         const fetchProducts = async () => {
+            if (!userId) {
+                 setLoading(false);
+                 return;
+            };
             setLoading(true);
             try {
-                const data = await supabaseService.getProducts();
+                const data = await supabaseService.getProductsByUserId(userId);
                 setProducts(data);
             } catch (error) {
                 console.error("Failed to fetch products for store:", error);
@@ -45,7 +51,7 @@ const Store: React.FC = () => {
             }
         };
         fetchProducts();
-    }, []);
+    }, [userId]);
     
     // Scroll spy effect
     useEffect(() => {
@@ -170,6 +176,11 @@ const Store: React.FC = () => {
 
                 {loading ? (
                     <div className="text-center text-gray-600 text-xl py-12">Cargando productos frescos...</div>
+                ) : !userId || products.length === 0 && searchTerm === '' ? (
+                     <div className="text-center text-gray-500 py-12">
+                        <h2 className="text-2xl font-semibold">Tienda no encontrada o vacía</h2>
+                        <p className="mt-2">Esta tienda puede no existir o aún no tener productos.</p>
+                    </div>
                 ) : displayCategories.length > 0 ? (
                     <div className="space-y-12">
                         {displayCategories.map(category => (

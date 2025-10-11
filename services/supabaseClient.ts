@@ -1,0 +1,30 @@
+import { createClient } from '@supabase/supabase-js';
+
+// TODO: Reemplaza los siguientes valores con la URL y la clave anónima (anon key) de tu proyecto de Supabase.
+// Puedes encontrar esta información en la configuración de tu proyecto de Supabase en "Project Settings" > "API".
+const supabaseUrl = 'YOUR_SUPABASE_URL';
+const supabaseAnonKey = 'YOUR_SUPABASE_ANON_KEY';
+
+// NOTA DE CONFIGURACIÓN IMPORTANTE:
+// 1. Asegúrate de haber creado un "bucket" de almacenamiento en tu panel de Supabase llamado 'product-images'.
+// 2. Asegúrate de que el bucket sea PÚBLICO. Ve a Storage > Policies y crea una nueva política para 'product-images' que permita el acceso público de lectura (SELECT).
+//    Una política simple para empezar podría ser:
+//    - Policy Name: Public Read Access
+//    - Allowed operations: SELECT
+//    - Target roles: anon, authenticated
+
+function initializeSupabaseClient() {
+    if (supabaseUrl === 'YOUR_SUPABASE_URL' || supabaseAnonKey === 'YOUR_SUPABASE_ANON_KEY') {
+        console.warn(`
+      **********************************************************************************
+      * ADVERTENCIA: Las credenciales de Supabase no están configuradas.                   *
+      * Por favor, actualiza los valores en 'services/supabaseClient.ts' para habilitar  *
+      * la subida de imágenes. La funcionalidad de subida usará imágenes de marcador de posición. *
+      **********************************************************************************
+    `);
+        return null;
+    }
+    return createClient(supabaseUrl, supabaseAnonKey);
+}
+
+export const supabase = initializeSupabaseClient();
