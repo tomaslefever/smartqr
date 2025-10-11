@@ -2,8 +2,10 @@ import { createClient } from '@supabase/supabase-js';
 
 // TODO: Reemplaza los siguientes valores con la URL y la clave anónima (anon key) de tu proyecto de Supabase.
 // Puedes encontrar esta información en la configuración de tu proyecto de Supabase en "Project Settings" > "API".
-const supabaseUrl = 'YOUR_SUPABASE_URL';
-const supabaseAnonKey = 'YOUR_SUPABASE_ANON_KEY';
+const supabaseUrl = 'https://tcvvnnphgwzxstzxytik.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdnZubnBoZ3d6eHN0enh5dGlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAxMzA4MzksImV4cCI6MjA3NTcwNjgzOX0.y0vrMGc4CY_PW1s43wkaoqGrascPvB95QpK9WrsaXfc
+
+';
 
 // NOTA DE CONFIGURACIÓN IMPORTANTE:
 // 1. Asegúrate de haber creado un "bucket" de almacenamiento en tu panel de Supabase llamado 'product-images'.
