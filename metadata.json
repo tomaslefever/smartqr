@@ -1,5 +1,5 @@
 {
-  "name": "Panel del Mercado Local",
+  "name": "SmartQR",
   "description": "Un panel completo para que los propietarios de mercados locales administren su inventario de productos. Incluye funciones para agregar, actualizar y eliminar productos, ver estadísticas de ventas y generar un código QR para una tienda en línea orientada al cliente.",
   "requestFramePermissions": []
 }
