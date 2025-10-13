@@ -6,7 +6,7 @@ interface ProductModalProps {
     product: Product | null;
     categories: string[];
     onClose: () => void;
-    onSave: (product: Product | Omit<Product, 'id' | 'createdAt'>, imageFile: File | null) => void;
+    onSave: (product: Product | Omit<Product, 'id' | 'created_at'>, imageFile: File | null) => void;
 }
 
 const ProductModal: React.FC<ProductModalProps> = ({ product, categories, onClose, onSave }) => {
@@ -39,7 +39,7 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, categories, onClos
                  setIsAddingNewCategory(false);
                  setNewCategory('');
             }
-            setImagePreview(product.imageUrl);
+            setImagePreview(product.image_url);
         } else {
             setFormData(prev => ({ ...prev, category: categories[0] || '' }));
         }
@@ -86,11 +86,11 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, categories, onClos
             price: parseFloat(formData.price),
             category: finalCategory,
             stock: parseInt(formData.stock, 10),
-            imageUrl: product?.imageUrl ?? '',
+            image_url: product?.image_url ?? '',
         };
         
         if (product) {
-            onSave({ ...productData, id: product.id, createdAt: product.createdAt }, imageFile);
+            onSave({ ...productData, id: product.id, created_at: product.created_at }, imageFile);
         } else {
             onSave(productData, imageFile);
         }

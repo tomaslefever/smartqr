@@ -42,7 +42,7 @@ const StatCard: React.FC<{ title: string; value: string; icon: React.ReactNode }
 const ProductListItem: React.FC<{ product: Product; onEdit: (product: Product) => void; onDelete: (id: number) => void; }> = ({ product, onEdit, onDelete }) => (
     <tr className="border-b border-gray-200 hover:bg-gray-50">
         <td className="p-4 flex items-center">
-            <img src={product.imageUrl} alt={product.name} className="w-12 h-12 rounded-md object-cover mr-4"/>
+            <img src={product.image_url} alt={product.name} className="w-12 h-12 rounded-md object-cover mr-4"/>
             <div>
                 <p className="font-semibold text-brand-text">{product.name}</p>
                 <p className="text-sm text-gray-500">{product.category}</p>
@@ -50,7 +50,7 @@ const ProductListItem: React.FC<{ product: Product; onEdit: (product: Product) =
         </td>
         <td className="p-4 text-gray-600">${product.price.toFixed(2)}</td>
         <td className="p-4 text-gray-600">{product.stock}</td>
-        <td className="p-4 text-gray-600">{new Date(product.createdAt).toLocaleDateString()}</td>
+        <td className="p-4 text-gray-600">{new Date(product.created_at).toLocaleDateString()}</td>
         <td className="p-4">
             <div className="flex space-x-2">
                 <button onClick={() => onEdit(product)} className="text-blue-500 hover:text-blue-700 p-2 rounded-full hover:bg-blue-100 transition-colors">
@@ -103,19 +103,19 @@ const Dashboard: React.FC = () => {
         setEditingProduct(null);
     };
 
-    const handleSaveProduct = async (product: Product | Omit<Product, 'id' | 'createdAt'>, imageFile: File | null) => {
-        let imageUrl = 'imageUrl' in product ? product.imageUrl : '';
+    const handleSaveProduct = async (product: Product | Omit<Product, 'id' | 'created_at'>, imageFile: File | null) => {
+        let image_url = 'image_url' in product ? product.image_url : '';
 
         if (imageFile) {
-            imageUrl = await supabaseService.uploadImage(imageFile);
+            image_url = await supabaseService.uploadImage(imageFile);
         }
         
-        const productData = { ...product, imageUrl };
+        const productData = { ...product, image_url };
 
         if ('id' in productData) {
             await supabaseService.updateProduct(productData.id, productData);
         } else {
-            await supabaseService.addProduct(productData as Omit<Product, 'id' | 'createdAt'>);
+            await supabaseService.addProduct(productData as Omit<Product, 'id' | 'created_at'>);
         }
         fetchData();
         handleCloseModal();

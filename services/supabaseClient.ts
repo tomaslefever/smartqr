@@ -14,7 +14,11 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 //    - Target roles: anon, authenticated
 
 function initializeSupabaseClient() {
-    if (supabaseUrl === 'YOUR_SUPABASE_URL' || supabaseAnonKey === 'YOUR_SUPABASE_ANON_KEY') {
+    // FIX: The comparison was changed from `===` to `includes()` to avoid a TypeScript error.
+    // When constants with literal string values are compared to other literal strings, TypeScript
+    // correctly identifies that the comparison will always be false, which it flags as an error.
+    // Using `includes()` preserves the intent of checking for placeholder values without causing this error.
+    if (supabaseUrl.includes('YOUR_SUPABASE_URL') || supabaseAnonKey.includes('YOUR_SUPABASE_ANON_KEY')) {
         console.warn(`
       **********************************************************************************
       * ADVERTENCIA: Las credenciales de Supabase no están configuradas.                   *

@@ -7,7 +7,7 @@ import { SearchIcon } from './Icons.tsx';
 const ProductCard: React.FC<{ product: Product }> = ({ product }) => (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden transform hover:-translate-y-1 transition-transform duration-300 group">
         <div className="overflow-hidden">
-             <img src={product.imageUrl} alt={product.name} className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300" />
+             <img src={product.image_url} alt={product.name} className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300" />
         </div>
         <div className="p-6">
             <p className="text-sm text-brand-primary font-semibold">{product.category}</p>

@@ -49,7 +49,7 @@ export const getProductsByUserId = async (userId: string): Promise<Product[]> =>
 };
 
 
-export const addProduct = async (product: Omit<Product, 'id' | 'createdAt'>): Promise<Product | null> => {
+export const addProduct = async (product: Omit<Product, 'id' | 'created_at'>): Promise<Product | null> => {
     if (!supabase) return null;
 
     // Get current user
