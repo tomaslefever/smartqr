@@ -3,9 +3,10 @@ import { useParams } from 'react-router-dom';
 import { Product } from '../types.ts';
 import * as supabaseService from '../services/supabaseService.ts';
 import { SearchIcon } from './Icons.tsx';
+import ProductDetailModal from './ProductDetailModal.tsx';
 
-const ProductCard: React.FC<{ product: Product }> = ({ product }) => (
-    <div className="bg-white rounded-xl shadow-lg overflow-hidden transform hover:-translate-y-1 transition-transform duration-300 group">
+const ProductCard: React.FC<{ product: Product; onClick: () => void; }> = ({ product, onClick }) => (
+    <button onClick={onClick} className="bg-white rounded-xl shadow-lg overflow-hidden transform hover:-translate-y-1 transition-transform duration-300 group text-left w-full">
         <div className="overflow-hidden">
              <img src={product.image_url} alt={product.name} className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300" />
         </div>
@@ -18,7 +19,7 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => (
                 <p className="text-sm font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full">{product.stock} en stock</p>
             </div>
         </div>
-    </div>
+    </button>
 );
 
 
@@ -28,6 +29,7 @@ const Store: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('Todos');
+    const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     
     const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
     const isClickScrolling = useRef(false);
@@ -192,7 +194,7 @@ const Store: React.FC = () => {
                                 <h2 className="text-3xl font-bold text-brand-text mb-6 border-b-2 border-brand-primary/20 pb-2">{category}</h2>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                                     {productsByCategory[category].map(product => (
-                                        <ProductCard key={product.id} product={product} />
+                                        <ProductCard key={product.id} product={product} onClick={() => setSelectedProduct(product)} />
                                     ))}
                                 </div>
                             </section>
@@ -209,6 +211,13 @@ const Store: React.FC = () => {
             <footer className="text-center py-8 text-gray-500 bg-brand-light">
                 <p>&copy; {new Date().getFullYear()} Mercado Local. Todos los derechos reservados.</p>
             </footer>
+
+            {selectedProduct && (
+                <ProductDetailModal 
+                    product={selectedProduct} 
+                    onClose={() => setSelectedProduct(null)} 
+                />
+            )}
         </div>
     );
 };

@@ -37,9 +37,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const { data: authListener } = supabase.auth.onAuthStateChange(
             (_event: AuthChangeEvent, session: Session | null) => {
                 setUser(session?.user ?? null);
-                if (_event === 'SIGNED_IN') {
-                    navigate('/');
-                }
+                // The redirect on sign-in is now handled by the AuthLayout component
+                // to prevent redirecting logged-in users from public pages.
                 if (_event === 'SIGNED_OUT') {
                     navigate('/login');
                 }
