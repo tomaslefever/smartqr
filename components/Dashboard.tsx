@@ -50,7 +50,6 @@ const ProductListItem: React.FC<{ product: Product; onEdit: (product: Product) =
         </td>
         <td className="p-4 text-gray-600">${product.price.toFixed(2)}{product.unit === 'kg' ? '/kg' : ''}</td>
         <td className="p-4 text-gray-600">{product.stock}</td>
-        <td className="p-4 text-gray-600">{new Date(product.created_at).toLocaleDateString()}</td>
         <td className="p-4">
             <div className="flex space-x-2">
                 <button onClick={() => onEdit(product)} className="text-blue-500 hover:text-blue-700 p-2 rounded-full hover:bg-blue-100 transition-colors">
@@ -197,17 +196,16 @@ const Dashboard: React.FC = () => {
                                         <th className="p-4 font-semibold text-gray-600">Producto</th>
                                         <th className="p-4 font-semibold text-gray-600">Precio</th>
                                         <th className="p-4 font-semibold text-gray-600">Stock</th>
-                                        <th className="p-4 font-semibold text-gray-600">Agregado el</th>
                                         <th className="p-4 font-semibold text-gray-600">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {loading ? (
-                                        <tr><td colSpan={5} className="text-center p-8 text-gray-500">Cargando productos...</td></tr>
+                                        <tr><td colSpan={4} className="text-center p-8 text-gray-500">Cargando productos...</td></tr>
                                     ) : products.length > 0 ? (
                                         products.map(p => <ProductListItem key={p.id} product={p} onEdit={() => handleOpenModal(p)} onDelete={handleDeleteProduct} />)
                                     ) : (
-                                        <tr><td colSpan={5} className="text-center p-8 text-gray-500">No se encontraron productos. ¡Añade el primero!</td></tr>
+                                        <tr><td colSpan={4} className="text-center p-8 text-gray-500">No se encontraron productos. ¡Añade el primero!</td></tr>
                                     )}
                                 </tbody>
                             </table>
