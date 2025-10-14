@@ -16,6 +16,7 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, categories, onClos
         price: '',
         category: '',
         stock: '',
+        unit: 'unit' as 'unit' | 'kg',
     });
     const [newCategory, setNewCategory] = useState('');
     const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
@@ -31,6 +32,7 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, categories, onClos
                 price: product.price.toString(),
                 category: product.category,
                 stock: product.stock.toString(),
+                unit: product.unit || 'unit',
             });
             if (product.category && !categories.includes(product.category)) {
                  setIsAddingNewCategory(true);
@@ -41,11 +43,11 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, categories, onClos
             }
             setImagePreview(product.image_url);
         } else {
-            setFormData(prev => ({ ...prev, category: categories[0] || '' }));
+            setFormData(prev => ({ ...prev, category: categories[0] || '', unit: 'unit' }));
         }
     }, [product, categories]);
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
@@ -86,6 +88,7 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, categories, onClos
             price: parseFloat(formData.price),
             category: finalCategory,
             stock: parseInt(formData.stock, 10),
+            unit: formData.unit,
             image_url: product?.image_url ?? '',
         };
         
@@ -184,15 +187,22 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, categories, onClos
                                     />
                                 )}
                             </div>
-                             <div className="grid grid-cols-2 gap-4">
-                                <div>
+                             <div className="grid grid-cols-3 gap-4">
+                                <div className="col-span-2">
                                     <label htmlFor="price" className="block text-sm font-medium text-gray-700">Precio</label>
                                     <input type="number" name="price" id="price" value={formData.price} onChange={handleChange} required step="0.01" min="0" className="mt-1 block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-brand-text focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary sm:text-sm"/>
                                 </div>
                                 <div>
-                                    <label htmlFor="stock" className="block text-sm font-medium text-gray-700">Stock</label>
-                                    <input type="number" name="stock" id="stock" value={formData.stock} onChange={handleChange} required min="0" className="mt-1 block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-brand-text focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary sm:text-sm"/>
+                                    <label htmlFor="unit" className="block text-sm font-medium text-gray-700">Unidad</label>
+                                    <select name="unit" id="unit" value={formData.unit} onChange={handleChange} className="mt-1 block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-brand-text focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary sm:text-sm">
+                                        <option value="unit">Unidad</option>
+                                        <option value="kg">Kg</option>
+                                    </select>
                                 </div>
+                            </div>
+                            <div>
+                                <label htmlFor="stock" className="block text-sm font-medium text-gray-700">Stock</label>
+                                <input type="number" name="stock" id="stock" value={formData.stock} onChange={handleChange} required min="0" className="mt-1 block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-brand-text focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary sm:text-sm"/>
                             </div>
                         </div>
                         

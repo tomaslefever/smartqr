@@ -128,7 +128,10 @@ export const getCategories = async (): Promise<string[]> => {
     }
     
     // Get unique categories
-    const categories = Array.from(new Set(data.map(item => item.category).filter(Boolean)));
+    // FIX: The `data.map` operation can result in an `unknown[]` type because the type from Supabase
+    // is not strictly defined. Using a type guard `(c): c is string` in the filter ensures the array
+    // is correctly typed as `string[]`, matching the function's return type, and also filters out any falsy values.
+    const categories = Array.from(new Set(data.map(item => item.category).filter((c): c is string => !!c)));
     return categories;
 };
 

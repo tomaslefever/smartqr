@@ -48,7 +48,7 @@ const ProductListItem: React.FC<{ product: Product; onEdit: (product: Product) =
                 <p className="text-sm text-gray-500">{product.category}</p>
             </div>
         </td>
-        <td className="p-4 text-gray-600">${product.price.toFixed(2)}</td>
+        <td className="p-4 text-gray-600">${product.price.toFixed(2)}{product.unit === 'kg' ? '/kg' : ''}</td>
         <td className="p-4 text-gray-600">{product.stock}</td>
         <td className="p-4 text-gray-600">{new Date(product.created_at).toLocaleDateString()}</td>
         <td className="p-4">

@@ -71,9 +71,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const signUp = async (email: string, password: string) => {
         if (!supabase) return { error: { message: 'Supabase not initialized' } };
         setLoading(true);
-        const { error } = await supabase.auth.signUp({ email, password });
+        
+        // First, attempt to create the user account.
+        const { error: signUpError } = await supabase.auth.signUp({ email, password });
+        
+        if (signUpError) {
+            setLoading(false);
+            return { error: signUpError };
+        }
+    
+        // If sign up was successful, immediately try to sign in.
+        // This will create a session and log the user in if email confirmation is disabled.
+        // The onAuthStateChange listener will handle the redirect.
+        // If email confirmation is enabled, this will fail, and the error will be displayed
+        // on the registration form, which is an improvement over the previous silent failure.
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+    
         setLoading(false);
-        return { error };
+        return { error: signInError };
     };
 
     const signOut = async () => {
