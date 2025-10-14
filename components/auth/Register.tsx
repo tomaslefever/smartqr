@@ -33,7 +33,7 @@ const Register: React.FC = () => {
     return (
         <div>
             <h2 className="text-2xl font-bold text-brand-text text-center">Crear una Cuenta</h2>
-            <p className="text-center text-gray-600 mt-2 mb-6">Comienza a gestionar tu mercado hoy mismo.</p>
+            <p className="text-center text-gray-600 mt-2 mb-6">Comienza a gestionar tu tienda hoy mismo.</p>
             
             {error && <p className="bg-red-100 text-red-700 p-3 rounded-md mb-4 text-sm">{error}</p>}
 

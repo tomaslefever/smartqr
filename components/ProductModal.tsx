@@ -190,7 +190,7 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, categories, onClos
                              <div className="grid grid-cols-3 gap-4">
                                 <div className="col-span-2">
                                     <label htmlFor="price" className="block text-sm font-medium text-gray-700">Precio</label>
-                                    <input type="number" name="price" id="price" value={formData.price} onChange={handleChange} required step="0.01" min="0" className="mt-1 block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-brand-text focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary sm:text-sm"/>
+                                    <input type="number" name="price" id="price" value={formData.price} onChange={handleChange} required step="1" min="0" className="mt-1 block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-brand-text focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary sm:text-sm"/>
                                 </div>
                                 <div>
                                     <label htmlFor="unit" className="block text-sm font-medium text-gray-700">Unidad</label>

@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient.ts';
-import { Product } from '../types.ts';
+import { Product, Profile } from '../types.ts';
 
 const BUCKET_NAME = 'product-images';
 
@@ -126,12 +126,16 @@ export const getCategories = async (): Promise<string[]> => {
         console.error('Error fetching categories:', error);
         return [];
     }
+
+    // FIX: Handle null data from Supabase query to prevent runtime errors and fix type inference.
+    if (!data) {
+        return [];
+    }
     
     // Get unique categories
-    // FIX: The `data.map` operation can result in an `unknown[]` type because the type from Supabase
-    // is not strictly defined. Using a type guard `(c): c is string` in the filter ensures the array
-    // is correctly typed as `string[]`, matching the function's return type, and also filters out any falsy values.
-    const categories = Array.from(new Set(data.map(item => item.category).filter((c): c is string => !!c)));
+    // FIX: The type from Supabase for `data` can be inferred as `any[]` or `unknown[]`, which can cause a type error.
+    // By filtering for truthy string values using flatMap, we can ensure the final array is `string[]`.
+    const categories = Array.from(new Set(data.flatMap(item => (item.category && typeof item.category === 'string') ? [item.category] : [])));
     return categories;
 };
 
@@ -167,4 +171,69 @@ export const uploadImage = async (file: File): Promise<string> => {
     }
     
     return publicUrl;
+};
+
+// --- Profile/Business Settings Functions ---
+
+// NOTE: This assumes a 'profiles' table exists with RLS policies set up.
+// The primary key 'id' of 'profiles' should be a foreign key to 'auth.users.id'.
+
+export const getProfile = async (): Promise<Profile | null> => {
+    if (!supabase) return null;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
+        console.error('Error fetching profile:', error);
+    }
+
+    return data as Profile | null;
+};
+
+export const getPublicProfileByUserId = async (userId: string): Promise<Profile | null> => {
+    if (!supabase) return null;
+
+    const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+    
+    if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching public profile:', error);
+    }
+    
+    return data as Profile | null;
+};
+
+export const updateProfile = async (profileData: Omit<Profile, 'email'>): Promise<Profile | null> => {
+    if (!supabase) return null;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    const updateData = {
+        ...profileData,
+        id: user.id, // Ensure the ID is set for upsert
+        updated_at: new Date(),
+    };
+
+    const { data, error } = await supabase
+        .from('profiles')
+        .upsert(updateData)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error updating profile:', error);
+        return null;
+    }
+    return data as Profile;
 };

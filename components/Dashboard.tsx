@@ -4,11 +4,16 @@ import { Product } from '../types.ts';
 import * as supabaseService from '../services/supabaseService.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 import ProductModal from './ProductModal.tsx';
-import QRCode from './QRCode.tsx';
-import { EditIcon, DeleteIcon, PlusIcon, PackageIcon, DollarSignIcon, BarChartIcon, ExternalLinkIcon, UserIcon, LogoutIcon } from './Icons.tsx';
+import SettingsModal from './SettingsModal.tsx';
+// FIX: Renamed the imported QRCode component to QRCodeComponent to avoid conflict with the global QRCode library variable.
+import QRCodeComponent from './QRCode.tsx';
+import { EditIcon, DeleteIcon, PlusIcon, PackageIcon, DollarSignIcon, BarChartIcon, ExternalLinkIcon, UserIcon, LogoutIcon, DownloadIcon, SettingsIcon } from './Icons.tsx';
 
 // Fix: Import chart components from 'recharts' instead of accessing them from the window object.
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+
+// Make QRCode library available in this component's scope for the download function
+declare var QRCode: any;
 
 // A simple dropdown menu component
 const DropdownMenu: React.FC<{ trigger: React.ReactNode; children: React.ReactNode }> = ({ trigger, children }) => {
@@ -48,7 +53,7 @@ const ProductListItem: React.FC<{ product: Product; onEdit: (product: Product) =
                 <p className="text-sm text-gray-500">{product.category}</p>
             </div>
         </td>
-        <td className="p-4 text-gray-600">${product.price.toFixed(2)}{product.unit === 'kg' ? '/kg' : ''}</td>
+        <td className="p-4 text-gray-600">${product.price.toLocaleString('es-CL')}{product.unit === 'kg' ? '/kg' : ''}</td>
         <td className="p-4 text-gray-600">{product.stock}</td>
         <td className="p-4">
             <div className="flex space-x-2">
@@ -67,7 +72,8 @@ const Dashboard: React.FC = () => {
     const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
-    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+    const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const { user, signOut } = useAuth();
 
@@ -92,13 +98,13 @@ const Dashboard: React.FC = () => {
         fetchData();
     }, [fetchData]);
 
-    const handleOpenModal = (product: Product | null = null) => {
+    const handleOpenProductModal = (product: Product | null = null) => {
         setEditingProduct(product);
-        setIsModalOpen(true);
+        setIsProductModalOpen(true);
     };
 
-    const handleCloseModal = () => {
-        setIsModalOpen(false);
+    const handleCloseProductModal = () => {
+        setIsProductModalOpen(false);
         setEditingProduct(null);
     };
 
@@ -117,7 +123,7 @@ const Dashboard: React.FC = () => {
             await supabaseService.addProduct(productData as Omit<Product, 'id' | 'created_at'>);
         }
         fetchData();
-        handleCloseModal();
+        handleCloseProductModal();
     };
     
     const handleDeleteProduct = async (id: number) => {
@@ -148,17 +154,57 @@ const Dashboard: React.FC = () => {
 
     const storeUrl = `${window.location.origin}${window.location.pathname}#/store/${user?.id}`;
 
+    const handleDownloadQR = () => {
+        const tempDiv = document.createElement('div');
+        // Hide the temporary element from view
+        tempDiv.style.position = 'absolute';
+        tempDiv.style.left = '-9999px';
+        tempDiv.style.top = '-9999px';
+        document.body.appendChild(tempDiv);
+        
+        new QRCode(tempDiv, {
+            text: storeUrl,
+            width: 1024,
+            height: 1024,
+            colorDark: "#3D3D3D",
+            colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.H
+        });
+
+        // The library might generate a canvas or an img. We should handle both.
+        const canvas = tempDiv.querySelector('canvas');
+        const img = tempDiv.querySelector('img');
+        let dataUrl: string | null = null;
+
+        if (canvas) {
+            dataUrl = canvas.toDataURL('image/png');
+        } else if (img && img.src) {
+            dataUrl = img.src;
+        }
+        
+        if (dataUrl) {
+            const link = document.createElement('a');
+            link.href = dataUrl;
+            link.download = 'smartqr-tienda.png';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        document.body.removeChild(tempDiv);
+    };
+
     return (
         <div className="min-h-screen bg-brand-light">
             <header className="bg-white shadow-sm">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-                    <h1 className="text-2xl font-bold text-brand-primary">Panel del Mercado</h1>
+                    <h1 className="text-2xl font-bold text-brand-primary">Panel de SmartQR</h1>
                     <div className="flex items-center space-x-4">
                         <Link to={`/store/${user?.id}`} target="_blank" rel="noopener noreferrer" className="bg-white text-brand-primary border border-brand-primary px-4 py-2 rounded-lg shadow-sm hover:bg-brand-primary/5 transition-colors flex items-center space-x-2">
                             <ExternalLinkIcon />
                             <span>Ver Tienda</span>
                         </Link>
-                        <button onClick={() => handleOpenModal()} className="bg-brand-primary text-white px-4 py-2 rounded-lg shadow-md hover:bg-brand-primary/90 transition-colors flex items-center space-x-2">
+                        <button onClick={() => handleOpenProductModal()} className="bg-brand-primary text-white px-4 py-2 rounded-lg shadow-md hover:bg-brand-primary/90 transition-colors flex items-center space-x-2">
                             <PlusIcon />
                             <span>Añadir Producto</span>
                         </button>
@@ -171,6 +217,10 @@ const Dashboard: React.FC = () => {
                                 <p className="text-sm text-gray-700">Conectado como</p>
                                 <p className="text-sm font-medium text-brand-text truncate">{user?.email}</p>
                             </div>
+                             <button onClick={() => setIsSettingsModalOpen(true)} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+                                <SettingsIcon />
+                                <span>Configuración</span>
+                            </button>
                             <button onClick={signOut} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2">
                                 <LogoutIcon />
                                 <span>Cerrar sesión</span>
@@ -183,7 +233,7 @@ const Dashboard: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     <StatCard title="Productos Totales" value={stats.totalProducts.toString()} icon={<PackageIcon />} />
                     <StatCard title="Artículos en Stock" value={stats.totalStock.toString()} icon={<BarChartIcon />} />
-                    <StatCard title="Valor Total del Inventario" value={`$${stats.totalValue.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} icon={<DollarSignIcon />} />
+                    <StatCard title="Valor Total del Inventario" value={`$${Math.round(stats.totalValue).toLocaleString('es-CL')}`} icon={<DollarSignIcon />} />
                 </div>
                 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
@@ -203,7 +253,7 @@ const Dashboard: React.FC = () => {
                                     {loading ? (
                                         <tr><td colSpan={4} className="text-center p-8 text-gray-500">Cargando productos...</td></tr>
                                     ) : products.length > 0 ? (
-                                        products.map(p => <ProductListItem key={p.id} product={p} onEdit={() => handleOpenModal(p)} onDelete={handleDeleteProduct} />)
+                                        products.map(p => <ProductListItem key={p.id} product={p} onEdit={() => handleOpenProductModal(p)} onDelete={handleDeleteProduct} />)
                                     ) : (
                                         <tr><td colSpan={4} className="text-center p-8 text-gray-500">No se encontraron productos. ¡Añade el primero!</td></tr>
                                     )}
@@ -215,11 +265,18 @@ const Dashboard: React.FC = () => {
                         <div className="bg-white p-6 rounded-lg shadow-md">
                            <h2 className="text-xl font-semibold text-brand-text mb-4">Código QR de la Tienda</h2>
                             <div className="flex flex-col items-center">
-                                <QRCode url={storeUrl} />
+                                <QRCodeComponent url={storeUrl} />
                                 <p className="text-center mt-4 text-sm text-gray-600">Escanea este código para ver tu tienda pública.</p>
                                 <a href={storeUrl} target="_blank" rel="noopener noreferrer" className="mt-2 text-brand-primary hover:underline text-xs break-all">
                                     {storeUrl}
                                 </a>
+                                <button 
+                                    onClick={handleDownloadQR} 
+                                    className="mt-4 bg-brand-secondary text-brand-primary border border-brand-primary/20 px-4 py-2 rounded-lg shadow-sm hover:bg-brand-accent/20 transition-colors flex items-center space-x-2 text-sm font-medium"
+                                >
+                                    <DownloadIcon />
+                                    <span>Descargar (1024px)</span>
+                                </button>
                             </div>
                         </div>
                         <div className="bg-white p-6 rounded-lg shadow-md">
@@ -239,7 +296,8 @@ const Dashboard: React.FC = () => {
                     </div>
                 </div>
 
-                {isModalOpen && <ProductModal product={editingProduct} categories={categories} onClose={handleCloseModal} onSave={handleSaveProduct} />}
+                {isProductModalOpen && <ProductModal product={editingProduct} categories={categories} onClose={handleCloseProductModal} onSave={handleSaveProduct} />}
+                {isSettingsModalOpen && user && <SettingsModal user={user} onClose={() => setIsSettingsModalOpen(false)} />}
             </main>
         </div>
     );

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { Product } from '../types.ts';
+import { Product, Profile } from '../types.ts';
 import * as supabaseService from '../services/supabaseService.ts';
-import { SearchIcon } from './Icons.tsx';
+import { SearchIcon, PhoneIcon, MailIcon, LocationMarkerIcon } from './Icons.tsx';
 import ProductDetailModal from './ProductDetailModal.tsx';
 
 const ProductCard: React.FC<{ product: Product; onClick: () => void; }> = ({ product, onClick }) => (
@@ -15,7 +15,7 @@ const ProductCard: React.FC<{ product: Product; onClick: () => void; }> = ({ pro
             <h3 className="text-xl font-bold text-brand-text mt-1 truncate">{product.name}</h3>
             <p className="text-gray-600 mt-2 text-sm h-10 overflow-hidden">{product.description}</p>
             <div className="mt-4 flex justify-between items-center">
-                <p className="text-2xl font-bold text-brand-primary">${product.price.toFixed(2)}{product.unit === 'kg' ? <span className="text-base font-normal text-gray-600">/kg</span> : ''}</p>
+                <p className="text-2xl font-bold text-brand-primary">$${product.price.toLocaleString('es-CL')}{product.unit === 'kg' ? <span className="text-base font-normal text-gray-600">/kg</span> : ''}</p>
                 <p className="text-sm font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full">{product.stock} en stock</p>
             </div>
         </div>
@@ -26,6 +26,7 @@ const ProductCard: React.FC<{ product: Product; onClick: () => void; }> = ({ pro
 const Store: React.FC = () => {
     const { userId } = useParams<{ userId: string }>();
     const [products, setProducts] = useState<Product[]>([]);
+    const [profile, setProfile] = useState<Profile | null>(null);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('Todos');
@@ -35,24 +36,27 @@ const Store: React.FC = () => {
     const isClickScrolling = useRef(false);
     const categoryBarRef = useRef<HTMLDivElement>(null);
 
-
     useEffect(() => {
-        const fetchProducts = async () => {
+        const fetchData = async () => {
             if (!userId) {
                  setLoading(false);
                  return;
             };
             setLoading(true);
             try {
-                const data = await supabaseService.getProductsByUserId(userId);
-                setProducts(data);
+                const [productsData, profileData] = await Promise.all([
+                    supabaseService.getProductsByUserId(userId),
+                    supabaseService.getPublicProfileByUserId(userId)
+                ]);
+                setProducts(productsData);
+                setProfile(profileData);
             } catch (error) {
-                console.error("Failed to fetch products for store:", error);
+                console.error("Failed to fetch store data:", error);
             } finally {
                 setLoading(false);
             }
         };
-        fetchProducts();
+        fetchData();
     }, [userId]);
     
     // Scroll spy effect
@@ -136,15 +140,15 @@ const Store: React.FC = () => {
     const displayCategories = Object.keys(productsByCategory);
 
     return (
-        <div className="min-h-screen bg-brand-light">
+        <div className="min-h-screen bg-brand-light flex flex-col">
             <header className="bg-white shadow-md sticky top-0 z-10">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center">
-                    <h1 className="text-4xl font-bold text-brand-primary">Bienvenido a Nuestro Mercado Local</h1>
-                    <p className="mt-2 text-lg text-brand-text opacity-90">Fresco, local y hecho con amor.</p>
+                    <h1 className="text-4xl font-bold text-brand-primary">{profile?.business_name || 'Bienvenido a la Tienda'}</h1>
+                    <p className="mt-2 text-lg text-brand-text opacity-90">Productos de calidad, a tu alcance.</p>
                 </div>
             </header>
             
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
                 <div className="bg-white rounded-lg shadow-sm p-4 mb-8 sticky top-[110px] z-10 flex flex-col sm:flex-row gap-4 items-center">
                     <div className="relative flex-grow w-full sm:w-auto">
                         <span className="absolute inset-y-0 left-0 flex items-center pl-3">
@@ -208,8 +212,46 @@ const Store: React.FC = () => {
                 )}
                  
             </main>
-            <footer className="text-center py-8 text-gray-500 bg-brand-light">
-                <p>&copy; {new Date().getFullYear()} Mercado Local. Todos los derechos reservados.</p>
+            <footer className="bg-white border-t mt-12">
+                <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8 text-brand-text">
+                    {profile && (profile.business_name || profile.address || profile.phone || profile.email || profile.opening_hours) ? (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center md:text-left">
+                            <div className="flex flex-col items-center md:items-start">
+                                <h3 className="text-xl font-bold text-brand-primary">{profile.business_name || 'Nuestra Tienda'}</h3>
+                                {profile.address && 
+                                    <div className="mt-4 flex items-center text-gray-600">
+                                        <LocationMarkerIcon />
+                                        <p className="ml-2">{profile.address}</p>
+                                    </div>
+                                }
+                            </div>
+                            <div className="flex flex-col items-center md:items-start">
+                                <h3 className="text-xl font-bold text-brand-primary">Contacto</h3>
+                                {profile.phone && 
+                                    <div className="mt-4 flex items-center text-gray-600">
+                                        <PhoneIcon />
+                                        <p className="ml-2">{profile.phone}</p>
+                                    </div>
+                                }
+                                {profile.email && 
+                                    <div className="mt-2 flex items-center text-gray-600">
+                                        <MailIcon />
+                                        <p className="ml-2">{profile.email}</p>
+                                    </div>
+                                }
+                            </div>
+                            <div className="flex flex-col items-center md:items-start">
+                                <h3 className="text-xl font-bold text-brand-primary">Horarios</h3>
+                                {profile.opening_hours ? (
+                                    <pre className="mt-4 text-gray-600 font-sans whitespace-pre-wrap text-center md:text-left">{profile.opening_hours}</pre>
+                                ) : <p className="mt-4 text-gray-600">Consulte nuestros horarios.</p>}
+                            </div>
+                        </div>
+                    ) : null}
+                    <div className="mt-12 border-t border-gray-200 pt-8 text-center text-gray-500">
+                       <p>&copy; {new Date().getFullYear()} SmartQR. Todos los derechos reservados.</p>
+                    </div>
+                </div>
             </footer>
 
             {selectedProduct && (
