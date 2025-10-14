@@ -127,16 +127,18 @@ export const getCategories = async (): Promise<string[]> => {
         return [];
     }
 
-    // FIX: Handle null data from Supabase query to prevent runtime errors and fix type inference.
     if (!data) {
         return [];
     }
     
-    // Get unique categories
-    // FIX: The type from Supabase for `data` can be inferred as `any[]` or `unknown[]`, which can cause a type error.
-    // By filtering for truthy string values using flatMap, we can ensure the final array is `string[]`.
-    const categories = Array.from(new Set(data.flatMap(item => (item.category && typeof item.category === 'string') ? [item.category] : [])));
-    return categories;
+    // FIX: The type from Supabase for `data` is `any[]`.
+    // We map over the data to get categories, then use a type guard to filter for non-empty strings.
+    // This ensures that the resulting array is `string[]`, satisfying the function's return type.
+    const categories = data
+        .map(item => item.category)
+        .filter((category): category is string => typeof category === 'string' && category.length > 0);
+
+    return Array.from(new Set(categories));
 };
 
 // --- Image Upload Function ---
