@@ -4,7 +4,7 @@ import { Product, Profile } from '../types.ts';
 const BUCKET_NAME = 'product-images';
 
 // A placeholder function to return a default image URL if Supabase is not configured
-const getPlaceholderImageUrl = () => {
+export const getPlaceholderImageUrl = () => {
     return `https://placehold.co/600x400/E2E8F0/4A5568?text=Product+Image`;
 };
 
