@@ -51,7 +51,7 @@ const ProductListItem: React.FC<{ product: Product; onEdit: (product: Product) =
             </div>
         </td>
         <td className="p-4 text-gray-600">${product.price.toLocaleString('es-CL')}{product.unit === 'kg' ? '/kg' : ''}</td>
-        <td className="p-4 text-gray-600">{product.stock}</td>
+        <td className="p-4 text-gray-600">{product.track_stock ? product.stock : <span className="text-gray-400" title="Sin control de stock">—</span>}</td>
         <td className="p-4">
             <div className="flex space-x-2">
                 <button onClick={() => onEdit(product)} className="text-blue-500 hover:text-blue-700 p-2 rounded-full hover:bg-blue-100 transition-colors">
@@ -134,8 +134,10 @@ const Dashboard: React.FC = () => {
 
     const stats = useMemo(() => {
         const totalProducts = products.length;
-        const totalStock = products.reduce((sum, p) => sum + p.stock, 0);
-        const totalValue = products.reduce((sum, p) => sum + (p.price * p.stock), 0);
+        // Only products with stock control count towards inventory figures
+        const stocked = products.filter(p => p.track_stock);
+        const totalStock = stocked.reduce((sum, p) => sum + p.stock, 0);
+        const totalValue = stocked.reduce((sum, p) => sum + (p.price * p.stock), 0);
         return {
             totalProducts,
             totalStock,

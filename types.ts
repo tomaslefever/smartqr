@@ -7,6 +7,8 @@ export interface Product {
   category: string;
   image_url: string;
   stock: number;
+  // When false the product has no stock control and `stock` is ignored
+  track_stock: boolean;
   created_at: string;
   unit: 'unit' | 'kg';
 }

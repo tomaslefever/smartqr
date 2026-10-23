@@ -14,9 +14,8 @@ const ProductCard: React.FC<{ product: Product; onClick: () => void; }> = ({ pro
             <p className="text-sm text-brand-primary font-semibold">{product.category}</p>
             <h3 className="text-xl font-bold text-brand-text mt-1 truncate">{product.name}</h3>
             <p className="text-gray-600 mt-2 text-sm h-10 overflow-hidden">{product.description}</p>
-            <div className="mt-4 flex justify-between items-center">
+            <div className="mt-4">
                 <p className="text-2xl font-bold text-brand-primary">${product.price.toLocaleString('es-CL')}{product.unit === 'kg' ? <span className="text-base font-normal text-gray-600">/kg</span> : ''}</p>
-                <p className="text-sm font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full">{product.stock} en stock</p>
             </div>
         </div>
     </button>
