@@ -9,6 +9,8 @@ export interface Product {
   stock: number;
   // When false the product has no stock control and `stock` is ignored
   track_stock: boolean;
+  // Quick manual flag: the store shows the product as "No disponible"
+  out_of_stock: boolean;
   created_at: string;
   unit: 'unit' | 'kg';
 }

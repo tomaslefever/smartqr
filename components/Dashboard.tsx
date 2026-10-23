@@ -4,6 +4,7 @@ import { Product } from '../types.ts';
 import * as supabaseService from '../services/supabaseService.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 import ProductModal from './ProductModal.tsx';
+import Switch from './Switch.tsx';
 import SettingsModal from './SettingsModal.tsx';
 import QRCode from 'qrcode';
 import QRCodeComponent, { QR_OPTIONS } from './QRCode.tsx';
@@ -41,7 +42,7 @@ const StatCard: React.FC<{ title: string; value: string; icon: React.ReactNode }
     </div>
 );
 
-const ProductListItem: React.FC<{ product: Product; onEdit: (product: Product) => void; onDelete: (id: number) => void; }> = ({ product, onEdit, onDelete }) => (
+const ProductListItem: React.FC<{ product: Product; onEdit: (product: Product) => void; onDelete: (id: number) => void; onToggleOutOfStock: (product: Product) => void; }> = ({ product, onEdit, onDelete, onToggleOutOfStock }) => (
     <tr className="border-b border-gray-200 hover:bg-gray-50">
         <td className="p-4 flex items-center">
             <img src={product.image_url} alt={product.name} className="w-12 h-12 rounded-md object-cover mr-4"/>
@@ -52,6 +53,9 @@ const ProductListItem: React.FC<{ product: Product; onEdit: (product: Product) =
         </td>
         <td className="p-4 text-gray-600">${product.price.toLocaleString('es-CL')}{product.unit === 'kg' ? '/kg' : ''}</td>
         <td className="p-4 text-gray-600">{product.track_stock ? product.stock : <span className="text-gray-400" title="Sin control de stock">—</span>}</td>
+        <td className="p-4">
+            <Switch checked={product.out_of_stock} onChange={() => onToggleOutOfStock(product)} label={`Marcar ${product.name} sin stock`} />
+        </td>
         <td className="p-4">
             <div className="flex space-x-2">
                 <button onClick={() => onEdit(product)} className="text-blue-500 hover:text-blue-700 p-2 rounded-full hover:bg-blue-100 transition-colors">
@@ -129,6 +133,20 @@ const Dashboard: React.FC = () => {
         if (window.confirm('¿Estás seguro de que quieres eliminar este producto?')) {
             await supabaseService.deleteProduct(id);
             fetchData();
+        }
+    };
+
+    const handleToggleOutOfStock = async (product: Product) => {
+        const out_of_stock = !product.out_of_stock;
+        const setFlag = (value: boolean) =>
+            setProducts(prev => prev.map(p => p.id === product.id ? { ...p, out_of_stock: value } : p));
+
+        // Update the row immediately and roll back if Supabase rejects the change
+        setFlag(out_of_stock);
+        const saved = await supabaseService.updateProduct(product.id, { out_of_stock });
+        if (!saved) {
+            setFlag(product.out_of_stock);
+            alert('No se pudo actualizar el producto. Inténtalo de nuevo.');
         }
     };
 
@@ -222,16 +240,17 @@ const Dashboard: React.FC = () => {
                                         <th className="p-4 font-semibold text-gray-600">Producto</th>
                                         <th className="p-4 font-semibold text-gray-600">Precio</th>
                                         <th className="p-4 font-semibold text-gray-600">Stock</th>
+                                        <th className="p-4 font-semibold text-gray-600">Sin stock</th>
                                         <th className="p-4 font-semibold text-gray-600">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {loading ? (
-                                        <tr><td colSpan={4} className="text-center p-8 text-gray-500">Cargando productos...</td></tr>
+                                        <tr><td colSpan={5} className="text-center p-8 text-gray-500">Cargando productos...</td></tr>
                                     ) : products.length > 0 ? (
-                                        products.map(p => <ProductListItem key={p.id} product={p} onEdit={() => handleOpenProductModal(p)} onDelete={handleDeleteProduct} />)
+                                        products.map(p => <ProductListItem key={p.id} product={p} onEdit={() => handleOpenProductModal(p)} onDelete={handleDeleteProduct} onToggleOutOfStock={handleToggleOutOfStock} />)
                                     ) : (
-                                        <tr><td colSpan={4} className="text-center p-8 text-gray-500">No se encontraron productos. ¡Añade el primero!</td></tr>
+                                        <tr><td colSpan={5} className="text-center p-8 text-gray-500">No se encontraron productos. ¡Añade el primero!</td></tr>
                                     )}
                                 </tbody>
                             </table>

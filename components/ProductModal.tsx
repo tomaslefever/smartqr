@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Product } from '../types.ts';
 import { CloseIcon, UploadIcon } from './Icons.tsx';
+import Switch from './Switch.tsx';
 
 interface ProductModalProps {
     product: Product | null;
@@ -19,6 +20,7 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, categories, onClos
         unit: 'unit' as 'unit' | 'kg',
     });
     const [trackStock, setTrackStock] = useState(false);
+    const [outOfStock, setOutOfStock] = useState(false);
     const [newCategory, setNewCategory] = useState('');
     const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
     const [imageFile, setImageFile] = useState<File | null>(null);
@@ -38,6 +40,7 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, categories, onClos
                 unit: product.unit || 'unit',
             });
             setTrackStock(product.track_stock);
+            setOutOfStock(product.out_of_stock);
             if (product.category && !categories.includes(product.category)) {
                  setIsAddingNewCategory(true);
                  setNewCategory(product.category);
@@ -94,6 +97,7 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, categories, onClos
             // Without stock control the previous value is kept, so turning it back on restores it
             stock: trackStock ? parseInt(formData.stock, 10) : (product?.stock ?? 0),
             track_stock: trackStock,
+            out_of_stock: outOfStock,
             unit: formData.unit,
             image_url: product?.image_url ?? '',
         };
@@ -216,21 +220,19 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, categories, onClos
                             <div>
                                 <div className="flex items-center justify-between">
                                     <label htmlFor="track-stock" className="block text-sm font-medium text-gray-700">Manejar stock</label>
-                                    <button
-                                        type="button"
-                                        id="track-stock"
-                                        role="switch"
-                                        aria-checked={trackStock}
-                                        onClick={() => setTrackStock(!trackStock)}
-                                        className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary ${trackStock ? 'bg-brand-primary' : 'bg-gray-300'}`}
-                                    >
-                                        <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${trackStock ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                                    </button>
+                                    <Switch id="track-stock" checked={trackStock} onChange={setTrackStock} />
                                 </div>
                                 <p className="mt-1 text-xs text-gray-500">El stock solo se ve en tu panel, nunca en la tienda.</p>
                                 {trackStock && (
                                     <input type="number" name="stock" id="stock" aria-label="Stock" value={formData.stock} onChange={handleChange} required min="0" placeholder="Cantidad disponible" className="mt-2 block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-brand-text focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary sm:text-sm"/>
                                 )}
+                            </div>
+                            <div>
+                                <div className="flex items-center justify-between">
+                                    <label htmlFor="out-of-stock" className="block text-sm font-medium text-gray-700">Sin stock</label>
+                                    <Switch id="out-of-stock" checked={outOfStock} onChange={setOutOfStock} />
+                                </div>
+                                <p className="mt-1 text-xs text-gray-500">La tienda lo muestra como "No disponible".</p>
                             </div>
                         </div>
                         

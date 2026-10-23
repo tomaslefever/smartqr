@@ -6,7 +6,7 @@ import { SearchIcon, PhoneIcon, MailIcon, LocationMarkerIcon } from './Icons.tsx
 import ProductDetailModal from './ProductDetailModal.tsx';
 
 const ProductCard: React.FC<{ product: Product; onClick: () => void; }> = ({ product, onClick }) => (
-    <button onClick={onClick} className="bg-white rounded-xl shadow-lg overflow-hidden transform hover:-translate-y-1 transition-transform duration-300 group text-left w-full">
+    <button onClick={onClick} className={`bg-white rounded-xl shadow-lg overflow-hidden transform hover:-translate-y-1 transition-transform duration-300 group text-left w-full ${product.out_of_stock ? 'opacity-60' : ''}`}>
         <div className="overflow-hidden">
              <img src={product.image_url} alt={product.name} className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300" />
         </div>
@@ -14,8 +14,9 @@ const ProductCard: React.FC<{ product: Product; onClick: () => void; }> = ({ pro
             <p className="text-sm text-brand-primary font-semibold">{product.category}</p>
             <h3 className="text-xl font-bold text-brand-text mt-1 truncate">{product.name}</h3>
             <p className="text-gray-600 mt-2 text-sm h-10 overflow-hidden">{product.description}</p>
-            <div className="mt-4">
+            <div className="mt-4 flex justify-between items-center">
                 <p className="text-2xl font-bold text-brand-primary">${product.price.toLocaleString('es-CL')}{product.unit === 'kg' ? <span className="text-base font-normal text-gray-600">/kg</span> : ''}</p>
+                {product.out_of_stock && <p className="text-sm font-medium text-gray-600 bg-gray-100 px-2 py-1 rounded-full">No disponible</p>}
             </div>
         </div>
     </button>

@@ -56,8 +56,9 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                     
                     <p className="text-gray-600 mb-6 flex-grow">{product.description}</p>
                     
-                    <div className="mt-auto pt-4 border-t">
+                    <div className="mt-auto flex justify-between items-center pt-4 border-t">
                         <p className="text-3xl font-bold text-brand-primary">${product.price.toLocaleString('es-CL')}{product.unit === 'kg' ? <span className="text-xl font-normal text-gray-600">/kg</span> : ''}</p>
+                        {product.out_of_stock && <p className="text-md font-medium text-gray-600 bg-gray-100 px-3 py-1 rounded-full">No disponible</p>}
                     </div>
                 </div>
             </div>
