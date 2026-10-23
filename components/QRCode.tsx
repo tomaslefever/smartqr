@@ -1,43 +1,34 @@
-
 import React, { useEffect, useRef } from 'react';
-
-declare var QRCode: any;
+import QRCode from 'qrcode';
 
 interface QRCodeProps {
     url: string;
 }
 
+export const QR_OPTIONS = {
+    errorCorrectionLevel: 'H',
+    color: {
+        dark: '#3D3D3D',
+        light: '#ffffff',
+    },
+} as const;
+
 const QRCodeComponent: React.FC<QRCodeProps> = ({ url }) => {
-    const qrCodeRef = useRef<HTMLDivElement>(null);
-    const qrCodeInstance = useRef<any>(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
 
     useEffect(() => {
-        if (qrCodeRef.current) {
-            // Clear previous QR code if URL changes
-            if (qrCodeInstance.current) {
-                qrCodeInstance.current.clear();
-                qrCodeInstance.current.makeCode(url);
-            } else {
-                 qrCodeInstance.current = new QRCode(qrCodeRef.current, {
-                    text: url,
-                    width: 160,
-                    height: 160,
-                    colorDark: "#3D3D3D",
-                    colorLight: "#ffffff",
-                    correctLevel: QRCode.CorrectLevel.H
-                });
-            }
+        if (canvasRef.current) {
+            QRCode.toCanvas(canvasRef.current, url, { ...QR_OPTIONS, width: 160, margin: 0 }).catch((error) => {
+                console.error('Error generating QR code:', error);
+            });
         }
-        
-        // Cleanup on unmount
-        return () => {
-            if (qrCodeInstance.current) {
-                qrCodeInstance.current.clear();
-            }
-        };
     }, [url]);
 
-    return <div ref={qrCodeRef} className="p-2 bg-white inline-block rounded-lg shadow-inner"/>;
+    return (
+        <div className="p-2 bg-white inline-block rounded-lg shadow-inner">
+            <canvas ref={canvasRef} />
+        </div>
+    );
 };
 
 export default QRCodeComponent;

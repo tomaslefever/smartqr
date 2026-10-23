@@ -1,9 +1,21 @@
 import { createClient } from '@supabase/supabase-js';
 
-// TODO: Reemplaza los siguientes valores con la URL y la clave anónima (anon key) de tu proyecto de Supabase.
-// Puedes encontrar esta información en la configuración de tu proyecto de Supabase en "Project Settings" > "API".
-const supabaseUrl = 'https://tcvvnnphgwzxstzxytik.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdnZubnBoZ3d6eHN0enh5dGlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAxMzA4MzksImV4cCI6MjA3NTcwNjgzOX0.y0vrMGc4CY_PW1s43wkaoqGrascPvB95QpK9WrsaXfc';
+declare global {
+    interface Window {
+        __SMARTQR_CONFIG__?: {
+            supabaseUrl?: string;
+            supabaseAnonKey?: string;
+        };
+    }
+}
+
+// La configuración se resuelve en este orden:
+// 1. window.__SMARTQR_CONFIG__, que server.js genera en /config.js a partir de las variables de entorno
+//    SUPABASE_URL y SUPABASE_ANON_KEY al momento de ejecutar (Docker / Easypanel).
+// 2. VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY, leídas al compilar (útil con `npm run dev` y .env.local).
+const runtimeConfig = window.__SMARTQR_CONFIG__ ?? {};
+const supabaseUrl = runtimeConfig.supabaseUrl || import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = runtimeConfig.supabaseAnonKey || import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 // NOTA DE CONFIGURACIÓN IMPORTANTE:
 // 1. Asegúrate de haber creado un "bucket" de almacenamiento en tu panel de Supabase llamado 'product-images'.
@@ -14,16 +26,12 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 //    - Target roles: anon, authenticated
 
 function initializeSupabaseClient() {
-    // FIX: The comparison was changed from `===` to `includes()` to avoid a TypeScript error.
-    // When constants with literal string values are compared to other literal strings, TypeScript
-    // correctly identifies that the comparison will always be false, which it flags as an error.
-    // Using `includes()` preserves the intent of checking for placeholder values without causing this error.
-    if (supabaseUrl.includes('YOUR_SUPABASE_URL') || supabaseAnonKey.includes('YOUR_SUPABASE_ANON_KEY')) {
+    if (!supabaseUrl || !supabaseAnonKey) {
         console.warn(`
       **********************************************************************************
-      * ADVERTENCIA: Las credenciales de Supabase no están configuradas.                   *
-      * Por favor, actualiza los valores en 'services/supabaseClient.ts' para habilitar  *
-      * la subida de imágenes. La funcionalidad de subida usará imágenes de marcador de posición. *
+      * ADVERTENCIA: Las credenciales de Supabase no están configuradas.                 *
+      * Define SUPABASE_URL y SUPABASE_ANON_KEY en el entorno del servidor, o           *
+      * VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY en .env.local para desarrollo.       *
       **********************************************************************************
     `);
         return null;

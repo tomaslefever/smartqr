@@ -4,43 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Panel de SmartQR</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              'brand-primary': '#4A7C59',
-              'brand-secondary': '#F5F5DC',
-              'brand-accent': '#D2B48C',
-              'brand-text': '#3D3D3D',
-              'brand-light': '#F9F9F0',
-            },
-            fontFamily: {
-              sans: ['Inter', 'sans-serif'],
-            },
-          },
-        },
-      }
-    </script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- QRCode.js is a standalone library and is loaded globally -->
-    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-<style>
-      /* Hide scrollbar for Chrome, Safari and Opera */
-      .no-scrollbar::-webkit-scrollbar {
-          display: none;
-      }
-
-      /* Hide scrollbar for IE, Edge and Firefox */
-      .no-scrollbar {
-          -ms-overflow-style: none;  /* IE and Edge */
-          scrollbar-width: none;  /* Firefox */
-      }
-</style>
-</head>
+    <!-- Runtime configuration (Supabase URL/key). Served by server.js from environment variables;
+         public/config.js is the empty fallback used by `npm run dev`. -->
+    <script src="/config.js"></script>
+  </head>
   <body class="bg-brand-light font-sans">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>

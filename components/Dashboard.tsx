@@ -5,15 +5,12 @@ import * as supabaseService from '../services/supabaseService.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 import ProductModal from './ProductModal.tsx';
 import SettingsModal from './SettingsModal.tsx';
-// FIX: Renamed the imported QRCode component to QRCodeComponent to avoid conflict with the global QRCode library variable.
-import QRCodeComponent from './QRCode.tsx';
+import QRCode from 'qrcode';
+import QRCodeComponent, { QR_OPTIONS } from './QRCode.tsx';
 import { EditIcon, DeleteIcon, PlusIcon, PackageIcon, DollarSignIcon, BarChartIcon, ExternalLinkIcon, UserIcon, LogoutIcon, DownloadIcon, SettingsIcon } from './Icons.tsx';
 
 // Fix: Import chart components from 'recharts' instead of accessing them from the window object.
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-
-// Make QRCode library available in this component's scope for the download function
-declare var QRCode: any;
 
 // A simple dropdown menu component
 const DropdownMenu: React.FC<{ trigger: React.ReactNode; children: React.ReactNode }> = ({ trigger, children }) => {
@@ -156,44 +153,19 @@ const Dashboard: React.FC = () => {
 
     const storeUrl = `${window.location.origin}${window.location.pathname}#/store/${user?.id}`;
 
-    const handleDownloadQR = () => {
-        const tempDiv = document.createElement('div');
-        // Hide the temporary element from view
-        tempDiv.style.position = 'absolute';
-        tempDiv.style.left = '-9999px';
-        tempDiv.style.top = '-9999px';
-        document.body.appendChild(tempDiv);
-        
-        new QRCode(tempDiv, {
-            text: storeUrl,
-            width: 1024,
-            height: 1024,
-            colorDark: "#3D3D3D",
-            colorLight: "#ffffff",
-            correctLevel: QRCode.CorrectLevel.H
-        });
-
-        // The library might generate a canvas or an img. We should handle both.
-        const canvas = tempDiv.querySelector('canvas');
-        const img = tempDiv.querySelector('img');
-        let dataUrl: string | null = null;
-
-        if (canvas) {
-            dataUrl = canvas.toDataURL('image/png');
-        } else if (img && img.src) {
-            dataUrl = img.src;
-        }
-        
-        if (dataUrl) {
+    const handleDownloadQR = async () => {
+        try {
+            // margin 4 keeps the standard quiet zone so the printed code scans reliably
+            const dataUrl = await QRCode.toDataURL(storeUrl, { ...QR_OPTIONS, width: 1024, margin: 4 });
             const link = document.createElement('a');
             link.href = dataUrl;
             link.download = 'smartqr-tienda.png';
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+        } catch (error) {
+            console.error('Error generating QR code for download:', error);
         }
-        
-        document.body.removeChild(tempDiv);
     };
 
     return (
