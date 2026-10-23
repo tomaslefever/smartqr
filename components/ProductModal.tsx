@@ -6,7 +6,7 @@ interface ProductModalProps {
     product: Product | null;
     categories: string[];
     onClose: () => void;
-    onSave: (product: Product | Omit<Product, 'id' | 'created_at'>, imageFile: File | null) => void;
+    onSave: (product: Product | Omit<Product, 'id' | 'created_at'>, imageFile: File | null) => Promise<void>;
 }
 
 const ProductModal: React.FC<ProductModalProps> = ({ product, categories, onClose, onSave }) => {
@@ -23,6 +23,8 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, categories, onClos
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [isDragging, setIsDragging] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         if (product) {
@@ -72,7 +74,7 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, categories, onClos
         }
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         const finalCategory = (isAddingNewCategory ? newCategory.trim() : formData.category);
@@ -92,10 +94,17 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, categories, onClos
             image_url: product?.image_url ?? '',
         };
         
-        if (product) {
-            onSave({ ...productData, id: product.id, created_at: product.created_at }, imageFile);
-        } else {
-            onSave(productData, imageFile);
+        setSaving(true);
+        setError(null);
+        try {
+            if (product) {
+                await onSave({ ...productData, id: product.id, created_at: product.created_at }, imageFile);
+            } else {
+                await onSave(productData, imageFile);
+            }
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'No se pudo guardar el producto.');
+            setSaving(false);
         }
     };
     
@@ -213,12 +222,17 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, categories, onClos
                         </div>
 
                     </div>
+                    {error && (
+                        <div className="px-6 pb-6">
+                            <p className="bg-red-100 text-red-700 p-3 rounded-md text-sm">{error}</p>
+                        </div>
+                    )}
                     <div className="p-6 bg-gray-50 flex justify-end space-x-4">
                         <button type="button" onClick={onClose} className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary/50 transition-colors">
                             Cancelar
                         </button>
-                        <button type="submit" className="bg-brand-primary text-white py-2 px-4 rounded-md shadow-sm text-sm font-medium hover:bg-brand-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary transition-colors">
-                            Guardar Producto
+                        <button type="submit" disabled={saving} className="bg-brand-primary text-white py-2 px-4 rounded-md shadow-sm text-sm font-medium hover:bg-brand-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary transition-colors disabled:opacity-50">
+                            {saving ? 'Guardando...' : 'Guardar Producto'}
                         </button>
                     </div>
                 </form>

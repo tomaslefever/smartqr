@@ -5,6 +5,8 @@ import { useNavigate } from 'react-router-dom';
 
 interface AuthContextType {
     user: User | null;
+    // True only while the initial session is being restored. Sign-in forms track their own
+    // submitting state: toggling this would make AuthLayout unmount them and lose their errors.
     loading: boolean;
     signInWithPassword: (email: string, password: string) => Promise<{ error: any | null }>;
     signInWithGoogle: () => Promise<{ error: any | null }>;
@@ -52,31 +54,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const signInWithPassword = async (email: string, password: string) => {
         if (!supabase) return { error: { message: 'Supabase not initialized' } };
-        setLoading(true);
         const { error } = await supabase.auth.signInWithPassword({ email, password });
-        setLoading(false);
         return { error };
     };
     
     const signInWithGoogle = async () => {
         if (!supabase) return { error: { message: 'Supabase not initialized' } };
-        setLoading(true);
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
         });
-        setLoading(false);
         return { error };
     };
 
     const signUp = async (email: string, password: string) => {
         if (!supabase) return { error: { message: 'Supabase not initialized' } };
-        setLoading(true);
         
         // First, attempt to create the user account.
         const { error: signUpError } = await supabase.auth.signUp({ email, password });
         
         if (signUpError) {
-            setLoading(false);
             return { error: signUpError };
         }
     
@@ -87,7 +83,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // on the registration form, which is an improvement over the previous silent failure.
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
     
-        setLoading(false);
         return { error: signInError };
     };
 

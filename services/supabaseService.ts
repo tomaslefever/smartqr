@@ -8,6 +8,10 @@ export const getPlaceholderImageUrl = () => {
     return `https://placehold.co/600x400/E2E8F0/4A5568?text=Product+Image`;
 };
 
+// Products saved without an image have an empty image_url; show the placeholder instead of a broken image
+const withImageFallback = (products: Product[]): Product[] =>
+    products.map(p => ({ ...p, image_url: p.image_url || getPlaceholderImageUrl() }));
+
 // --- Product Functions ---
 
 export const getProducts = async (): Promise<Product[]> => {
@@ -29,7 +33,7 @@ export const getProducts = async (): Promise<Product[]> => {
         console.error('Error fetching products:', error);
         return [];
     }
-    return products as Product[];
+    return withImageFallback(products as Product[]);
 };
 
 export const getProductsByUserId = async (userId: string): Promise<Product[]> => {
@@ -45,7 +49,7 @@ export const getProductsByUserId = async (userId: string): Promise<Product[]> =>
         console.error('Error fetching products by user ID:', error);
         return [];
     }
-    return products as Product[];
+    return withImageFallback(products as Product[]);
 };
 
 
@@ -150,8 +154,11 @@ export const uploadImage = async (file: File): Promise<string> => {
         return getPlaceholderImageUrl();
     }
     
-    // Create a unique file name
-    const fileName = `${Date.now()}-${file.name}`;
+    // Create a unique file name. The original name is not reused because Storage rejects
+    // keys with characters like accents, ñ or some symbols (e.g. "piña.jpg").
+    const rawExtension = file.name.includes('.') ? file.name.split('.').pop() ?? '' : '';
+    const extension = rawExtension.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+    const fileName = `${Date.now()}-${crypto.randomUUID()}.${extension}`;
     
     const { error: uploadError } = await supabase.storage
         .from(BUCKET_NAME)
@@ -159,7 +166,7 @@ export const uploadImage = async (file: File): Promise<string> => {
 
     if (uploadError) {
         console.error('Error uploading image:', uploadError);
-        throw new Error('Image upload failed.');
+        throw new Error('No se pudo subir la imagen. Inténtalo de nuevo.');
     }
 
     // Get the public URL of the uploaded image
@@ -169,7 +176,7 @@ export const uploadImage = async (file: File): Promise<string> => {
         
     if (!publicUrl) {
         console.error('Error getting public URL for image');
-        throw new Error('Could not get image URL.');
+        throw new Error('No se pudo obtener la URL de la imagen.');
     }
     
     return publicUrl;

@@ -5,7 +5,6 @@ import * as supabaseService from '../services/supabaseService.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 import ProductModal from './ProductModal.tsx';
 import SettingsModal from './SettingsModal.tsx';
-import ReportModal from './ReportModal.tsx';
 // FIX: Renamed the imported QRCode component to QRCodeComponent to avoid conflict with the global QRCode library variable.
 import QRCodeComponent from './QRCode.tsx';
 import { EditIcon, DeleteIcon, PlusIcon, PackageIcon, DollarSignIcon, BarChartIcon, ExternalLinkIcon, UserIcon, LogoutIcon, DownloadIcon, SettingsIcon } from './Icons.tsx';
@@ -15,12 +14,6 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 
 // Make QRCode library available in this component's scope for the download function
 declare var QRCode: any;
-
-declare global {
-    interface Window {
-        ag_ui?: any;
-    }
-}
 
 // A simple dropdown menu component
 const DropdownMenu: React.FC<{ trigger: React.ReactNode; children: React.ReactNode }> = ({ trigger, children }) => {
@@ -82,7 +75,6 @@ const Dashboard: React.FC = () => {
     const [isProductModalOpen, setIsProductModalOpen] = useState(false);
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-    const [reportContent, setReportContent] = useState<string | null>(null);
     const { user, signOut } = useAuth();
 
     const fetchData = useCallback(async () => {
@@ -117,7 +109,7 @@ const Dashboard: React.FC = () => {
     };
 
     const handleSaveProduct = async (product: Product | Omit<Product, 'id' | 'created_at'>, imageFile: File | null) => {
-        let image_url = 'image_url' in product ? product.image_url : '';
+        let image_url = product.image_url;
 
         if (imageFile) {
             image_url = await supabaseService.uploadImage(imageFile);
@@ -125,10 +117,12 @@ const Dashboard: React.FC = () => {
         
         const productData = { ...product, image_url };
 
-        if ('id' in productData) {
-            await supabaseService.updateProduct(productData.id, productData);
-        } else {
-            await supabaseService.addProduct(productData as Omit<Product, 'id' | 'created_at'>);
+        const saved = 'id' in productData
+            ? await supabaseService.updateProduct(productData.id, productData)
+            : await supabaseService.addProduct(productData);
+
+        if (!saved) {
+            throw new Error('No se pudo guardar el producto. Inténtalo de nuevo.');
         }
         fetchData();
         handleCloseProductModal();
@@ -159,141 +153,6 @@ const Dashboard: React.FC = () => {
         });
         return Object.entries(counts).map(([name, value]) => ({ name, value }));
     }, [products]);
-
-    useEffect(() => {
-        // AG-UI setup
-        if (typeof window.ag_ui === 'undefined') {
-            window.ag_ui = {};
-        }
-
-        window.ag_ui.functions = {
-            createProduct: {
-                description: 'Crea un nuevo producto en el inventario. Devuelve un mensaje de confirmación.',
-                args: {
-                    name: { type: "string", description: "El nombre del producto." },
-                    description: { type: "string", description: "Una breve descripción del producto." },
-                    price: { type: "number", description: "El precio del producto." },
-                    category: { type: "string", description: "La categoría a la que pertenece el producto." },
-                    stock: { type: "number", description: "La cantidad de stock disponible." },
-                    unit: { type: "string", description: "La unidad de medida, puede ser 'unit' (unidad) o 'kg' (kilogramo)." }
-                },
-                function: async ({ name, description, price, category, stock, unit }: any) => {
-                    const newProduct = {
-                        name,
-                        description,
-                        price: parseFloat(price),
-                        category,
-                        stock: parseInt(stock, 10),
-                        unit,
-                        image_url: supabaseService.getPlaceholderImageUrl()
-                    };
-                    const result = await supabaseService.addProduct(newProduct as Omit<Product, 'id' | 'created_at'>);
-                    if (result) {
-                        fetchData();
-                        return `Producto "${name}" creado exitosamente.`;
-                    } else {
-                        return `Error al crear el producto "${name}".`;
-                    }
-                }
-            },
-            updateProductPrice: {
-                description: 'Actualiza el precio de un producto existente por su nombre. Devuelve un mensaje de confirmación.',
-                args: {
-                    productName: { type: "string", description: "El nombre exacto del producto a actualizar." },
-                    newPrice: { type: "number", description: "El nuevo precio para el producto." }
-                },
-                function: async ({ productName, newPrice }: any) => {
-                    const product = products.find(p => p.name.toLowerCase() === productName.toLowerCase());
-                    if (!product) {
-                        return `Producto "${productName}" no encontrado.`;
-                    }
-                    const result = await supabaseService.updateProduct(product.id, { price: parseFloat(newPrice) });
-                    if (result) {
-                        fetchData();
-                        return `El precio de "${productName}" fue actualizado a $${newPrice}.`;
-                    } else {
-                        return `Error al actualizar el precio de "${productName}".`;
-                    }
-                }
-            },
-            updateProductStock: {
-                description: 'Actualiza la cantidad de stock de un producto existente por su nombre. Devuelve un mensaje de confirmación.',
-                args: {
-                    productName: { type: "string", description: "El nombre exacto del producto a actualizar." },
-                    newStock: { type: "number", description: "La nueva cantidad de stock para el producto." }
-                },
-                function: async ({ productName, newStock }: any) => {
-                    const product = products.find(p => p.name.toLowerCase() === productName.toLowerCase());
-                    if (!product) {
-                        return `Producto "${productName}" no encontrado.`;
-                    }
-                    const result = await supabaseService.updateProduct(product.id, { stock: parseInt(newStock, 10) });
-                    if (result) {
-                        fetchData();
-                        return `El stock de "${productName}" fue actualizado a ${newStock}.`;
-                    } else {
-                        return `Error al actualizar el stock de "${productName}".`;
-                    }
-                }
-            },
-            deleteProductByName: {
-                description: 'Elimina un producto del inventario por su nombre. Esta acción no se puede deshacer. Devuelve un mensaje de confirmación.',
-                args: {
-                    productName: { type: "string", description: "El nombre exacto del producto a eliminar." }
-                },
-                function: async ({ productName }: any) => {
-                    const product = products.find(p => p.name.toLowerCase() === productName.toLowerCase());
-                    if (!product) {
-                        return `Producto "${productName}" no encontrado.`;
-                    }
-                    const result = await supabaseService.deleteProduct(product.id);
-                    if (result) {
-                        fetchData();
-                        return `Producto "${productName}" eliminado exitosamente.`;
-                    } else {
-                        return `Error al eliminar el producto "${productName}".`;
-                    }
-                }
-            },
-            listProducts: {
-                description: 'Devuelve una lista de todos los productos en el inventario con su stock y precio.',
-                args: {},
-                function: () => {
-                    if (products.length === 0) {
-                        return "No tienes productos en tu inventario.";
-                    }
-                    const productList = products.map(p => `- ${p.name} (Stock: ${p.stock}, Precio: $${p.price.toLocaleString('es-CL')})`).join('\n');
-                    return `Aquí está tu lista de productos:\n${productList}`;
-                }
-            },
-            getStoreSummary: {
-                description: 'Devuelve un resumen del estado actual del inventario, incluyendo el número total de productos, el stock total y el valor total del inventario.',
-                args: {},
-                function: () => {
-                    const { totalProducts, totalStock, totalValue } = stats;
-                    return `
-Resumen de la Tienda:
-- Productos Totales: ${totalProducts}
-- Artículos en Stock: ${totalStock}
-- Valor Total del Inventario: $${Math.round(totalValue).toLocaleString('es-CL')}
-                    `;
-                }
-            }
-        };
-
-        window.ag_ui.report = (markdown: string) => {
-            setReportContent(markdown);
-        };
-
-        // Cleanup on unmount
-        return () => {
-            if (window.ag_ui) {
-                delete window.ag_ui.functions;
-                delete window.ag_ui.report;
-            }
-        };
-
-    }, [products, fetchData, stats]);
 
     const storeUrl = `${window.location.origin}${window.location.pathname}#/store/${user?.id}`;
 
@@ -441,7 +300,6 @@ Resumen de la Tienda:
 
                 {isProductModalOpen && <ProductModal product={editingProduct} categories={categories} onClose={handleCloseProductModal} onSave={handleSaveProduct} />}
                 {isSettingsModalOpen && user && <SettingsModal user={user} onClose={() => setIsSettingsModalOpen(false)} />}
-                {reportContent && <ReportModal content={reportContent} onClose={() => setReportContent(null)} />}
             </main>
         </div>
     );

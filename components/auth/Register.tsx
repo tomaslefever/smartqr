@@ -7,7 +7,8 @@ const Register: React.FC = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
-    const { signUp, signInWithGoogle, loading } = useAuth();
+    const [submitting, setSubmitting] = useState(false);
+    const { signUp, signInWithGoogle } = useAuth();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -16,7 +17,9 @@ const Register: React.FC = () => {
             setError('La contraseña debe tener al menos 6 caracteres.');
             return;
         }
+        setSubmitting(true);
         const { error } = await signUp(email, password);
+        setSubmitting(false);
         if (error) {
             setError(error.message);
         }
@@ -24,9 +27,11 @@ const Register: React.FC = () => {
     
     const handleGoogleSignIn = async () => {
         setError(null);
+        setSubmitting(true);
         const { error } = await signInWithGoogle();
         if (error) {
             setError(error.message);
+            setSubmitting(false);
         }
     };
 
@@ -62,10 +67,10 @@ const Register: React.FC = () => {
                 </div>
                 <button
                     type="submit"
-                    disabled={loading}
+                    disabled={submitting}
                     className="w-full bg-brand-primary text-white py-2 px-4 rounded-md shadow-sm text-sm font-medium hover:bg-brand-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary transition-colors disabled:opacity-50"
                 >
-                    {loading ? 'Creando cuenta...' : 'Crear Cuenta'}
+                    {submitting ? 'Creando cuenta...' : 'Crear Cuenta'}
                 </button>
             </form>
 
@@ -77,7 +82,7 @@ const Register: React.FC = () => {
 
             <button
                 onClick={handleGoogleSignIn}
-                disabled={loading}
+                disabled={submitting}
                 className="w-full flex justify-center items-center space-x-2 bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary/50 transition-colors disabled:opacity-50"
             >
                 <GoogleIcon />
