@@ -154,11 +154,11 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, categories, onClos
                                    <div className="flex text-sm text-gray-600 justify-center">
                                        <label htmlFor="file-upload" className="relative cursor-pointer bg-transparent rounded-md font-medium text-brand-primary hover:text-brand-primary/80 focus-within:outline-none">
                                            <span>Sube un archivo</span>
-                                           <input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleImageChange} accept="image/png, image/jpeg, image/gif"/>
+                                           <input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleImageChange} accept="image/png, image/jpeg, image/gif, image/webp"/>
                                        </label>
                                        <p className="pl-1">o arrastra y suelta</p>
                                    </div>
-                                   <p className="text-xs text-gray-500">PNG, JPG, GIF hasta 10MB</p>
+                                   <p className="text-xs text-gray-500">PNG, JPG, GIF, WEBP hasta 10MB</p>
                                </div>
                            </div>
                         </div>

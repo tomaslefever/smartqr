@@ -154,11 +154,17 @@ export const uploadImage = async (file: File): Promise<string> => {
         return getPlaceholderImageUrl();
     }
     
-    // Create a unique file name. The original name is not reused because Storage rejects
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+        throw new Error('Debes iniciar sesión para subir imágenes.');
+    }
+
+    // Create a unique file name inside the user's folder: the storage policy only allows
+    // uploads under "<user id>/". The original name is not reused because Storage rejects
     // keys with characters like accents, ñ or some symbols (e.g. "piña.jpg").
     const rawExtension = file.name.includes('.') ? file.name.split('.').pop() ?? '' : '';
     const extension = rawExtension.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
-    const fileName = `${Date.now()}-${crypto.randomUUID()}.${extension}`;
+    const fileName = `${user.id}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
     
     const { error: uploadError } = await supabase.storage
         .from(BUCKET_NAME)

@@ -18,12 +18,8 @@ const supabaseUrl = runtimeConfig.supabaseUrl || import.meta.env.VITE_SUPABASE_U
 const supabaseAnonKey = runtimeConfig.supabaseAnonKey || import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 // NOTA DE CONFIGURACIÓN IMPORTANTE:
-// 1. Asegúrate de haber creado un "bucket" de almacenamiento en tu panel de Supabase llamado 'product-images'.
-// 2. Asegúrate de que el bucket sea PÚBLICO. Ve a Storage > Policies y crea una nueva política para 'product-images' que permita el acceso público de lectura (SELECT).
-//    Una política simple para empezar podría ser:
-//    - Policy Name: Public Read Access
-//    - Allowed operations: SELECT
-//    - Target roles: anon, authenticated
+// Las imágenes se guardan en un bucket PÚBLICO llamado 'product-images'. Las políticas de
+// subida y los límites del bucket están en supabase/storage-policies.sql.
 
 function initializeSupabaseClient() {
     if (!supabaseUrl || !supabaseAnonKey) {

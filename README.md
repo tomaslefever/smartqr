@@ -7,7 +7,8 @@ Panel para que negocios administren su inventario de productos y compartan una t
 - Node.js 20 o superior
 - Un proyecto de Supabase con:
   - Tablas `products` y `profiles` con sus políticas RLS.
-  - Un bucket de Storage **público** llamado `product-images`.
+  - Un bucket de Storage **público** llamado `product-images`, con las políticas de
+    [`supabase/storage-policies.sql`](supabase/storage-policies.sql).
 
 ## Configuración
 
