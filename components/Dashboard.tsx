@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext.tsx';
 import ProductModal from './ProductModal.tsx';
 import Switch from './Switch.tsx';
 import SettingsModal from './SettingsModal.tsx';
+import ThemePickerCard from './ThemePickerCard.tsx';
 import QRCode from 'qrcode';
 import QRCodeComponent, { QR_OPTIONS } from './QRCode.tsx';
 import { EditIcon, DeleteIcon, PlusIcon, PackageIcon, DollarSignIcon, BarChartIcon, ExternalLinkIcon, UserIcon, LogoutIcon, DownloadIcon, SettingsIcon, ColorSwatchIcon } from './Icons.tsx';
@@ -278,6 +279,7 @@ const Dashboard: React.FC = () => {
                                 </button>
                             </div>
                         </div>
+                        <ThemePickerCard />
                         <div className="bg-white p-6 rounded-lg shadow-md">
                             <h2 className="text-xl font-semibold text-brand-text mb-4">Productos por Categoría</h2>
                             <div style={{ width: '100%', height: 300 }}>

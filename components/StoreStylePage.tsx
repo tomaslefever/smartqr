@@ -5,6 +5,7 @@ import * as supabaseService from '../services/supabaseService.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 import { ProductCard } from './Store.tsx';
 import { PlusIcon, UploadIcon } from './Icons.tsx';
+import ThemeSwatch from './ThemeSwatch.tsx';
 import {
     DEFAULT_THEME_STYLE,
     PATTERN_SIZE_MAX,
@@ -61,15 +62,6 @@ const ColorField: React.FC<{ id: string; label: string; hint?: string; value: st
         </div>
     );
 };
-
-const ThemeSwatch: React.FC<{ style: ThemeStyle }> = ({ style }) => (
-    <div className="h-20 rounded-md border border-gray-200 p-3 flex items-end" style={themeStyleVars(normalizeThemeStyle(style))}>
-        <div className="w-full rounded bg-[color:var(--store-card)] p-2 shadow-sm">
-            <div className="h-1.5 w-1/2 rounded-full bg-[color:var(--store-text)]" />
-            <div className="mt-1.5 h-1.5 w-1/4 rounded-full bg-[color:var(--store-accent)]" />
-        </div>
-    </div>
-);
 
 const ThemeOption: React.FC<{ name: string; style: ThemeStyle; selected: boolean; active: boolean; onClick: () => void }> = ({ name, style, selected, active, onClick }) => (
     <button
