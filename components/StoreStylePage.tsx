@@ -21,6 +21,9 @@ const SAMPLE_PRODUCTS: Product[] = [
     { id: -2, name: 'Otro producto', description: 'Este aparece como no disponible.', price: 3500, category: 'Categoría', image_url: supabaseService.getPlaceholderImageUrl(), stock: 0, created_at: '', unit: 'unit', track_stock: false, out_of_stock: true },
 ];
 
+// Predefined themes shown before expanding the gallery
+const COLLAPSED_PREDEFINED_COUNT = 10;
+
 // What the editor is working on: an existing theme or one that has not been created yet
 type Selection = { kind: 'theme'; id: string } | { kind: 'new' };
 
@@ -127,6 +130,7 @@ const StoreStylePage: React.FC = () => {
     const [businessName, setBusinessName] = useState('');
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
+    const [showAllPredefined, setShowAllPredefined] = useState(false);
     const [busy, setBusy] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -171,6 +175,11 @@ const StoreStylePage: React.FC = () => {
     const previewProducts = products.length > 0 ? products : SAMPLE_PRODUCTS;
     const predefinedThemes = themes.filter(t => t.owner_id === null);
     const ownThemes = themes.filter(t => t.owner_id !== null);
+    // The collapsed gallery always keeps the theme in use and the one being edited visible
+    const visiblePredefined = showAllPredefined
+        ? predefinedThemes
+        : predefinedThemes.filter((t, index) =>
+            index < COLLAPSED_PREDEFINED_COUNT || t.id === activeThemeId || (selection.kind === 'theme' && selection.id === t.id));
 
     const confirmDiscard = () =>
         !isDirty || window.confirm('Tienes cambios sin guardar en este tema. ¿Descartarlos?');
@@ -321,9 +330,16 @@ const StoreStylePage: React.FC = () => {
                     <>
                         <section className="space-y-4">
                             <div>
-                                <h2 className="text-lg font-semibold text-brand-text">Temas predefinidos</h2>
+                                <div className="flex items-baseline justify-between gap-4">
+                                    <h2 className="text-lg font-semibold text-brand-text">Temas predefinidos</h2>
+                                    {predefinedThemes.length > COLLAPSED_PREDEFINED_COUNT && (
+                                        <button type="button" onClick={() => setShowAllPredefined(!showAllPredefined)} className="text-sm font-medium text-brand-primary hover:underline">
+                                            {showAllPredefined ? 'Ver menos' : `Ver los ${predefinedThemes.length} temas`}
+                                        </button>
+                                    )}
+                                </div>
                                 <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-                                    {predefinedThemes.map(theme => (
+                                    {visiblePredefined.map(theme => (
                                         <ThemeOption key={theme.id} name={theme.name} style={theme} selected={selection.kind === 'theme' && selection.id === theme.id} active={theme.id === activeThemeId} onClick={() => handleSelect(theme)} />
                                     ))}
                                 </div>

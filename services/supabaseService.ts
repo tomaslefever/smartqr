@@ -255,7 +255,7 @@ export const updateProfile = async (profileData: Omit<Profile, 'email'>): Promis
 
 // --- Theme Functions ---
 
-// Predefined themes first, then the user's own themes
+// Predefined themes first (in their gallery order), then the user's own themes
 export const getThemes = async (): Promise<Theme[]> => {
     if (!supabase) return [];
 
@@ -267,6 +267,7 @@ export const getThemes = async (): Promise<Theme[]> => {
         .select('*')
         .or(`owner_id.is.null,owner_id.eq.${user.id}`)
         .order('owner_id', { ascending: true, nullsFirst: true })
+        .order('sort_order', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: true });
 
     if (error) {

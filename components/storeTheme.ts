@@ -79,7 +79,7 @@ const readableOn = (hex: string) => {
 export const themeStyleVars = (theme: ThemeStyle): React.CSSProperties => ({
     '--store-card': theme.card_color,
     '--store-text': theme.text_color,
-    '--store-muted': `color-mix(in srgb, ${theme.text_color} 70%, transparent)`,
+    '--store-muted': `color-mix(in srgb, ${theme.text_color} 75%, transparent)`,
     '--store-subtle': `color-mix(in srgb, ${theme.text_color} 8%, transparent)`,
     '--store-border': `color-mix(in srgb, ${theme.text_color} 18%, transparent)`,
     '--store-accent': theme.accent_color,
