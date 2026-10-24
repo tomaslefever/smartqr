@@ -5,7 +5,7 @@ import * as supabaseService from '../services/supabaseService.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 import { ProductCard } from './Store.tsx';
 import { UploadIcon } from './Icons.tsx';
-import ThemeSwatch from './ThemeSwatch.tsx';
+import ThemeSelect, { NEW_THEME } from './ThemeSelect.tsx';
 import { buttonClass, cardClass, errorBoxClass, hintClass, inputClass, labelClass, successBoxClass } from './ui.ts';
 import { Reveal, usePanelColors } from './effects.tsx';
 import ShinyText from './reactbits/ShinyText.tsx';
@@ -24,9 +24,6 @@ const SAMPLE_PRODUCTS: Product[] = [
     { id: -1, name: 'Producto de ejemplo', description: 'Así se ve la descripción de un producto.', price: 2900, category: 'Categoría', image_url: '', stock: 0, created_at: '', unit: 'unit', track_stock: false, out_of_stock: false, active: true },
     { id: -2, name: 'Otro producto', description: 'Este aparece como no disponible.', price: 3500, category: 'Categoría', image_url: '', stock: 0, created_at: '', unit: 'unit', track_stock: false, out_of_stock: true, active: true },
 ];
-
-// Value of the theme select that starts a new theme
-const NEW_THEME = 'new';
 
 // What the editor is working on: an existing theme or one that has not been created yet
 type Selection = { kind: 'theme'; id: string } | { kind: 'new' };
@@ -166,7 +163,6 @@ const StoreStylePage: React.FC = () => {
         const theme = themes.find(t => t.id === value);
         if (theme) handleSelect(theme);
     };
-    const themeLabel = (theme: Theme) => `${theme.name}${theme.id === activeThemeId ? ' · en uso' : ''}`;
 
     const confirmDiscard = () =>
         !isDirty || window.confirm('Tienes cambios sin guardar en este tema. ¿Descartarlos?');
@@ -312,25 +308,16 @@ const StoreStylePage: React.FC = () => {
                             <div className={`${cardClass} p-6 space-y-6`}>
                                 <div>
                                     <label htmlFor="theme-select" className={labelClass}>Tema</label>
-                                    <div className="mt-1.5 flex items-center gap-2">
-                                        <ThemeSwatch style={previewStyle} className="h-10 w-12 flex-shrink-0 p-1" />
-                                        <select
+                                    <div className="mt-1.5">
+                                        <ThemeSelect
                                             id="theme-select"
                                             value={selection.kind === 'new' ? NEW_THEME : selection.id}
-                                            onChange={(e) => handleThemeSelect(e.target.value)}
-                                            className={inputClass}
-                                        >
-                                            {selection.kind === 'new' && <option value={NEW_THEME}>Nuevo tema (sin guardar)</option>}
-                                            {ownThemes.length > 0 && (
-                                                <optgroup label="Mis temas">
-                                                    {ownThemes.map(theme => <option key={theme.id} value={theme.id}>{themeLabel(theme)}</option>)}
-                                                </optgroup>
-                                            )}
-                                            <optgroup label={`Predefinidos (${predefinedThemes.length})`}>
-                                                {predefinedThemes.map(theme => <option key={theme.id} value={theme.id}>{themeLabel(theme)}</option>)}
-                                            </optgroup>
-                                            {selection.kind !== 'new' && <option value={NEW_THEME}>+ Nuevo tema</option>}
-                                        </select>
+                                            ownThemes={ownThemes}
+                                            predefinedThemes={predefinedThemes}
+                                            activeThemeId={activeThemeId}
+                                            currentStyle={previewStyle}
+                                            onChange={handleThemeSelect}
+                                        />
                                     </div>
                                     {predefinedThemes.length === 0 && (
                                         <p className={`${hintClass} mt-1.5`}>No hay temas predefinidos. ¿Se ejecutó la migración supabase/themes.sql?</p>
