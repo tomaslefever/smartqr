@@ -9,7 +9,7 @@ import ThemePickerCard from './ThemePickerCard.tsx';
 import { PageHeader } from './AppShell.tsx';
 import QRCode from 'qrcode';
 import QRCodeComponent, { QR_OPTIONS } from './QRCode.tsx';
-import { EditIcon, DeleteIcon, PlusIcon, DownloadIcon, SearchIcon, CopyIcon, CheckIcon, PackageIcon } from './Icons.tsx';
+import { EditIcon, DeleteIcon, PlusIcon, DownloadIcon, SearchIcon, CopyIcon, CheckIcon, PackageIcon, UploadIcon } from './Icons.tsx';
 import { buttonClass, cardClass, iconButtonClass, inputClass } from './ui.ts';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -29,11 +29,41 @@ const StatCard: React.FC<{ label: string; value: string; hint?: string }> = ({ l
     </div>
 );
 
-const ProductRow: React.FC<{ product: Product; onEdit: (product: Product) => void; onDelete: (id: number) => void; onToggleOutOfStock: (product: Product) => void; }> = ({ product, onEdit, onDelete, onToggleOutOfStock }) => (
+// Products without a picture carry the placeholder URL (see withImageFallback)
+const hasImage = (product: Product) => !!product.image_url && product.image_url !== supabaseService.getPlaceholderImageUrl();
+
+// Clicking the empty thumbnail opens the file picker and uploads the picture without going through the edit modal
+const ImagePlaceholderButton: React.FC<{ product: Product; uploading: boolean; onUploadImage: (product: Product, file: File) => void; }> = ({ product, uploading, onUploadImage }) => (
+    <label
+        title={uploading ? 'Subiendo imagen...' : 'Subir imagen'}
+        className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-dashed border-control bg-muted/40 text-fg-subtle transition-colors focus-within:ring-2 focus-within:ring-primary/40 [&_svg]:h-5 [&_svg]:w-5 [&_svg]:text-current ${uploading ? 'cursor-wait' : 'cursor-pointer hover:border-primary hover:bg-primary/5 hover:text-primary'}`}
+    >
+        {uploading ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" /> : <UploadIcon />}
+        <input
+            type="file"
+            className="sr-only"
+            accept="image/png, image/jpeg, image/gif, image/webp"
+            disabled={uploading}
+            aria-label={`Subir imagen de ${product.name}`}
+            onChange={e => {
+                const file = e.target.files?.[0];
+                // Reset so picking the same file again after a failed upload still fires onChange
+                e.target.value = '';
+                if (file) onUploadImage(product, file);
+            }}
+        />
+    </label>
+);
+
+const ProductRow: React.FC<{ product: Product; uploading: boolean; onEdit: (product: Product) => void; onDelete: (id: number) => void; onToggleOutOfStock: (product: Product) => void; onUploadImage: (product: Product, file: File) => void; }> = ({ product, uploading, onEdit, onDelete, onToggleOutOfStock, onUploadImage }) => (
     <tr className="group border-b border-line last:border-0 transition-colors hover:bg-muted/50">
         <td className="py-3 pl-5 pr-3">
             <div className="flex items-center gap-3">
-                <img src={product.image_url} alt="" className="h-10 w-10 flex-shrink-0 rounded-lg border border-line object-cover" />
+                {hasImage(product) ? (
+                    <img src={product.image_url} alt="" className="h-10 w-10 flex-shrink-0 rounded-lg border border-line object-cover" />
+                ) : (
+                    <ImagePlaceholderButton product={product} uploading={uploading} onUploadImage={onUploadImage} />
+                )}
                 <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-fg">{product.name}</p>
                     <p className="truncate text-xs text-fg-subtle">{product.category}</p>
@@ -90,6 +120,7 @@ const Dashboard: React.FC = () => {
     const [search, setSearch] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('');
     const [copied, setCopied] = useState(false);
+    const [uploadingIds, setUploadingIds] = useState<Set<number>>(new Set());
     const { user } = useAuth();
     const { resolved } = useColorMode();
     const chartColors = CHART_COLORS[resolved];
@@ -163,6 +194,31 @@ const Dashboard: React.FC = () => {
         if (!saved) {
             setFlag(product.out_of_stock);
             alert('No se pudo actualizar el producto. Inténtalo de nuevo.');
+        }
+    };
+
+    const handleUploadImage = async (product: Product, file: File) => {
+        if (!file.type.startsWith('image/')) {
+            alert('El archivo debe ser una imagen (PNG, JPG, GIF o WEBP).');
+            return;
+        }
+        setUploadingIds(prev => new Set(prev).add(product.id));
+        try {
+            const image_url = await supabaseService.uploadImage(file);
+            const saved = await supabaseService.updateProduct(product.id, { image_url });
+            if (!saved) {
+                throw new Error('No se pudo guardar la imagen del producto. Inténtalo de nuevo.');
+            }
+            setProducts(prev => prev.map(p => p.id === product.id ? { ...p, image_url } : p));
+        } catch (error) {
+            console.error('Error uploading product image:', error);
+            alert(error instanceof Error ? error.message : 'No se pudo subir la imagen. Inténtalo de nuevo.');
+        } finally {
+            setUploadingIds(prev => {
+                const next = new Set(prev);
+                next.delete(product.id);
+                return next;
+            });
         }
     };
 
@@ -270,7 +326,7 @@ const Dashboard: React.FC = () => {
                                 {loading ? (
                                     <SkeletonRows />
                                 ) : visibleProducts.length > 0 ? (
-                                    visibleProducts.map(p => <ProductRow key={p.id} product={p} onEdit={() => handleOpenProductModal(p)} onDelete={handleDeleteProduct} onToggleOutOfStock={handleToggleOutOfStock} />)
+                                    visibleProducts.map(p => <ProductRow key={p.id} product={p} uploading={uploadingIds.has(p.id)} onEdit={() => handleOpenProductModal(p)} onDelete={handleDeleteProduct} onToggleOutOfStock={handleToggleOutOfStock} onUploadImage={handleUploadImage} />)
                                 ) : (
                                     <tr>
                                         <td colSpan={5} className="px-5 py-16 text-center">
