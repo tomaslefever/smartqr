@@ -5,6 +5,28 @@ const BUCKET_NAME = 'product-images';
 
 // --- Product Functions ---
 
+// Postgres error for a column that does not exist (e.g. before supabase/products-position.sql runs)
+const UNDEFINED_COLUMN = '42703';
+
+// A business's products in their manual order (newest first for any without a position)
+const fetchProductsInOrder = async (userId: string): Promise<Product[]> => {
+    if (!supabase) return [];
+
+    const query = () => supabase!.from('products').select('*').eq('user_id', userId);
+    let { data: products, error } = await query()
+        .order('position', { ascending: true, nullsFirst: false })
+        .order('created_at', { ascending: false });
+
+    if (error?.code === UNDEFINED_COLUMN) {
+        ({ data: products, error } = await query().order('created_at', { ascending: false }));
+    }
+    if (error) {
+        console.error('Error fetching products:', error);
+        return [];
+    }
+    return products as Product[];
+};
+
 export const getProducts = async (): Promise<Product[]> => {
     if (!supabase) return [];
 
@@ -13,34 +35,21 @@ export const getProducts = async (): Promise<Product[]> => {
         console.error("No user logged in to get products");
         return [];
     }
-    
-    const { data: products, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('user_id', user.id) // Filter by current user
-        .order('created_at', { ascending: false });
-
-    if (error) {
-        console.error('Error fetching products:', error);
-        return [];
-    }
-    return products as Product[];
+    return fetchProductsInOrder(user.id);
 };
 
-export const getProductsByUserId = async (userId: string): Promise<Product[]> => {
-    if (!supabase) return [];
+export const getProductsByUserId = async (userId: string): Promise<Product[]> => fetchProductsInOrder(userId);
 
-    const { data: products, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+// Saves a full order in one call: ids in the order they should appear
+export const reorderProducts = async (productIds: number[]): Promise<boolean> => {
+    if (!supabase) return false;
 
+    const { error } = await supabase.rpc('reorder_products', { product_ids: productIds });
     if (error) {
-        console.error('Error fetching products by user ID:', error);
-        return [];
+        console.error('Error reordering products:', error);
+        return false;
     }
-    return products as Product[];
+    return true;
 };
 
 
@@ -54,7 +63,16 @@ export const addProduct = async (product: Omit<Product, 'id' | 'created_at'>): P
         return null;
     }
 
-    const newProduct = { ...product, user_id: user.id };
+    // New products go to the end of the menu
+    const { data: last, error: positionError } = await supabase
+        .from('products')
+        .select('position')
+        .eq('user_id', user.id)
+        .order('position', { ascending: false, nullsFirst: false })
+        .limit(1);
+    const position = positionError ? undefined : (last?.[0]?.position ?? 0) + 1;
+
+    const newProduct = { ...product, user_id: user.id, ...(position !== undefined && { position }) };
 
     const { data, error } = await supabase
         .from('products')

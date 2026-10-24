@@ -11,6 +11,8 @@ export interface Product {
   track_stock: boolean;
   // Quick manual flag: the store shows the product as "No disponible"
   out_of_stock: boolean;
+  // Manual order within the business's menu (1 = first); null until supabase/products-position.sql runs
+  position?: number | null;
   // When false the product stays in the panel but is hidden from the public store
   active: boolean;
   created_at: string;

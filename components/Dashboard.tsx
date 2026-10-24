@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { DndContext, DragEndEvent, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Product } from '../types.ts';
 import * as supabaseService from '../services/supabaseService.ts';
 import { useAuth } from '../context/AuthContext.tsx';
@@ -7,7 +10,7 @@ import ProductModal from './ProductModal.tsx';
 import Switch from './Switch.tsx';
 import StoreQRModal from './StoreQRModal.tsx';
 import { PageHeader } from './AppShell.tsx';
-import { EditIcon, DeleteIcon, PlusIcon, SearchIcon, PackageIcon, UploadIcon, QrCodeIcon } from './Icons.tsx';
+import { EditIcon, DeleteIcon, PlusIcon, SearchIcon, PackageIcon, UploadIcon, QrCodeIcon, GripIcon } from './Icons.tsx';
 import { buttonClass, cardClass, iconButtonClass, inputClass } from './ui.ts';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -53,9 +56,29 @@ const ImagePlaceholderButton: React.FC<{ product: Product; uploading: boolean; o
 // Rows from before supabase/products-active.sql have no `active` value and count as active
 const isActive = (product: Product) => product.active !== false;
 
-const ProductRow: React.FC<{ product: Product; uploading: boolean; onEdit: (product: Product) => void; onDelete: (id: number) => void; onToggleOutOfStock: (product: Product) => void; onToggleActive: (product: Product) => void; onUploadImage: (product: Product, file: File) => void; }> = ({ product, uploading, onEdit, onDelete, onToggleOutOfStock, onToggleActive, onUploadImage }) => (
-    <tr className="group border-b border-line last:border-0 transition-colors hover:bg-muted/50">
-        <td className="py-3 pl-5 pr-3">
+const ProductRow: React.FC<{ product: Product; uploading: boolean; onEdit: (product: Product) => void; onDelete: (id: number) => void; onToggleOutOfStock: (product: Product) => void; onToggleActive: (product: Product) => void; onUploadImage: (product: Product, file: File) => void; }> = ({ product, uploading, onEdit, onDelete, onToggleOutOfStock, onToggleActive, onUploadImage }) => {
+    const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: product.id });
+
+    return (
+    <tr
+        ref={setNodeRef}
+        style={{ transform: CSS.Translate.toString(transform), transition }}
+        className={`group border-b border-line last:border-0 transition-colors ${isDragging ? 'relative z-10 bg-surface shadow-pop' : 'hover:bg-muted/50'}`}
+    >
+        <td className="w-8 py-3 pl-3 pr-0">
+            <button
+                ref={setActivatorNodeRef}
+                {...attributes}
+                {...listeners}
+                type="button"
+                className={`${iconButtonClass} h-7 w-6 touch-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+                title="Arrastra para reordenar"
+                aria-label={`Reordenar ${product.name}`}
+            >
+                <GripIcon />
+            </button>
+        </td>
+        <td className="py-3 pl-2 pr-3">
             <div className={`flex items-center gap-3 transition-opacity ${isActive(product) ? '' : 'opacity-50'}`}>
                 {product.image_url ? (
                     <img src={product.image_url} alt="" className="h-10 w-10 flex-shrink-0 rounded-lg border border-line object-cover" />
@@ -96,13 +119,15 @@ const ProductRow: React.FC<{ product: Product; uploading: boolean; onEdit: (prod
             </div>
         </td>
     </tr>
-);
+    );
+};
 
 const SkeletonRows: React.FC = () => (
     <>
         {Array.from({ length: 5 }, (_, i) => (
             <tr key={i} className="border-b border-line last:border-0">
-                <td className="py-3 pl-5 pr-3">
+                <td className="w-8 py-3 pl-3 pr-0" />
+                <td className="py-3 pl-2 pr-3">
                     <div className="flex items-center gap-3">
                         <div className="h-10 w-10 animate-pulse rounded-lg bg-muted" />
                         <div className="space-y-2"><div className="h-3 w-32 animate-pulse rounded bg-muted" /><div className="h-2.5 w-20 animate-pulse rounded bg-muted" /></div>
@@ -261,6 +286,42 @@ const Dashboard: React.FC = () => {
             (!term || p.name.toLowerCase().includes(term) || p.category.toLowerCase().includes(term)));
     }, [products, search, categoryFilter]);
 
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    );
+
+    const productName = (id: string | number) => products.find(p => p.id === id)?.name ?? 'Producto';
+    const dndAccessibility = {
+        screenReaderInstructions: { draggable: 'Para reordenar, presiona espacio, muévelo con las flechas y presiona espacio de nuevo para soltarlo. Escape cancela.' },
+        announcements: {
+            onDragStart: ({ active }: { active: { id: string | number } }) => `Moviendo ${productName(active.id)}.`,
+            onDragOver: ({ active, over }: { active: { id: string | number }; over: { id: string | number } | null }) => over ? `${productName(active.id)} sobre ${productName(over.id)}.` : undefined,
+            onDragEnd: ({ active, over }: { active: { id: string | number }; over: { id: string | number } | null }) => over ? `${productName(active.id)} quedó en la posición de ${productName(over.id)}.` : undefined,
+            onDragCancel: ({ active }: { active: { id: string | number } }) => `Se canceló mover ${productName(active.id)}.`,
+        },
+    };
+
+    const handleDragEnd = async ({ active, over }: DragEndEvent) => {
+        if (!over || active.id === over.id) return;
+        const visibleIds = visibleProducts.map(p => p.id);
+        const reorderedVisible = arrayMove(visibleProducts, visibleIds.indexOf(Number(active.id)), visibleIds.indexOf(Number(over.id)));
+
+        // With a search or category filter, the visible products keep the slots they occupy in the
+        // full list, in their new order, so the rest of the menu does not move
+        const visibleSet = new Set(visibleIds);
+        let next = 0;
+        const newOrder = products.map(p => (visibleSet.has(p.id) ? reorderedVisible[next++] : p));
+
+        const previous = products;
+        setProducts(newOrder);
+        const saved = await supabaseService.reorderProducts(newOrder.map(p => p.id));
+        if (!saved) {
+            setProducts(previous);
+            alert('No se pudo guardar el nuevo orden. Inténtalo de nuevo.');
+        }
+    };
+
     const stockHint = stats.stockedCount === 0 ? 'Ningún producto maneja stock' : `${stats.stockedCount} con control de stock`;
 
     return (
@@ -303,10 +364,13 @@ const Dashboard: React.FC = () => {
                     </div>
                     {/* relative: keeps absolutely positioned children (e.g. sr-only labels) inside the scroller */}
                     <div className="relative overflow-x-auto">
+                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd} accessibility={dndAccessibility}>
+                        <SortableContext items={visibleProducts.map(p => p.id)} strategy={verticalListSortingStrategy}>
                         <table className="w-full text-left">
                             <thead>
                                 <tr className="border-b border-line text-xs font-medium text-fg-subtle">
-                                    <th className="py-2.5 pl-5 pr-3 font-medium">Producto</th>
+                                    <th className="w-8 py-2.5 pl-3 pr-0"><span className="sr-only">Orden</span></th>
+                                    <th className="py-2.5 pl-2 pr-3 font-medium">Producto</th>
                                     <th className="px-3 py-2.5 font-medium">Precio</th>
                                     <th className="px-3 py-2.5 font-medium">Stock</th>
                                     <th className="px-3 py-2.5 font-medium">Sin stock</th>
@@ -321,7 +385,7 @@ const Dashboard: React.FC = () => {
                                     visibleProducts.map(p => <ProductRow key={p.id} product={p} uploading={uploadingIds.has(p.id)} onEdit={() => handleOpenProductModal(p)} onDelete={handleDeleteProduct} onToggleOutOfStock={handleToggleOutOfStock} onToggleActive={handleToggleActive} onUploadImage={handleUploadImage} />)
                                 ) : (
                                     <tr>
-                                        <td colSpan={6} className="px-5 py-16 text-center">
+                                        <td colSpan={7} className="px-5 py-16 text-center">
                                             <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-muted text-fg-subtle [&_svg]:h-5 [&_svg]:w-5"><PackageIcon /></div>
                                             {products.length === 0 ? (
                                                 <>
@@ -340,11 +404,14 @@ const Dashboard: React.FC = () => {
                                 )}
                             </tbody>
                         </table>
+                        </SortableContext>
+                        </DndContext>
                     </div>
                     {!loading && products.length > 0 && (
-                        <p className="border-t border-line px-5 py-3 text-xs text-fg-subtle">
-                            {visibleProducts.length === products.length ? `${products.length} productos` : `${visibleProducts.length} de ${products.length} productos`}
-                        </p>
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line px-5 py-3 text-xs text-fg-subtle">
+                            <p>{visibleProducts.length === products.length ? `${products.length} productos` : `${visibleProducts.length} de ${products.length} productos`}</p>
+                            <p className="flex items-center gap-1">Arrastra <span className="[&_svg]:h-3.5 [&_svg]:w-3.5"><GripIcon /></span> para cambiar el orden en tu carta.</p>
+                        </div>
                     )}
                 </section>
 
