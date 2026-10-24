@@ -4,7 +4,7 @@ import { Product, Theme, ThemeStyle } from '../types.ts';
 import * as supabaseService from '../services/supabaseService.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 import { ProductCard } from './Store.tsx';
-import { PlusIcon, UploadIcon } from './Icons.tsx';
+import { UploadIcon } from './Icons.tsx';
 import ThemeSwatch from './ThemeSwatch.tsx';
 import { buttonClass, cardClass, errorBoxClass, hintClass, inputClass, labelClass, successBoxClass } from './ui.ts';
 import {
@@ -23,8 +23,8 @@ const SAMPLE_PRODUCTS: Product[] = [
     { id: -2, name: 'Otro producto', description: 'Este aparece como no disponible.', price: 3500, category: 'Categoría', image_url: '', stock: 0, created_at: '', unit: 'unit', track_stock: false, out_of_stock: true, active: true },
 ];
 
-// Predefined themes shown before expanding the gallery
-const COLLAPSED_PREDEFINED_COUNT = 10;
+// Value of the theme select that starts a new theme
+const NEW_THEME = 'new';
 
 // What the editor is working on: an existing theme or one that has not been created yet
 type Selection = { kind: 'theme'; id: string } | { kind: 'new' };
@@ -63,20 +63,6 @@ const ColorField: React.FC<{ id: string; label: string; hint?: string; value: st
         </div>
     );
 };
-
-const ThemeOption: React.FC<{ name: string; style: ThemeStyle; selected: boolean; active: boolean; onClick: () => void }> = ({ name, style, selected, active, onClick }) => (
-    <button
-        type="button"
-        onClick={onClick}
-        className={`text-left rounded-xl border bg-surface p-2 shadow-soft ring-2 transition focus:outline-none focus-visible:ring-primary/40 ${selected ? 'border-transparent ring-primary' : 'border-line ring-transparent hover:border-control'}`}
-    >
-        <ThemeSwatch style={style} />
-        <div className="mt-2 flex items-center justify-between gap-2 px-1">
-            <span className="text-sm font-medium text-fg truncate">{name}</span>
-            {active && <span className="text-[11px] font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full whitespace-nowrap">En uso</span>}
-        </div>
-    </button>
-);
 
 const StorePreview: React.FC<{ style: ThemeStyle; businessName: string; products: Product[] }> = ({ style, businessName, products }) => {
     const categories = Array.from(new Set(products.map(p => p.category).filter(Boolean))).slice(0, 3);
@@ -123,7 +109,6 @@ const StoreStylePage: React.FC = () => {
     const [businessName, setBusinessName] = useState('');
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
-    const [showAllPredefined, setShowAllPredefined] = useState(false);
     const [busy, setBusy] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -168,11 +153,17 @@ const StoreStylePage: React.FC = () => {
     const previewProducts = products.length > 0 ? products : SAMPLE_PRODUCTS;
     const predefinedThemes = themes.filter(t => t.owner_id === null);
     const ownThemes = themes.filter(t => t.owner_id !== null);
-    // The collapsed gallery always keeps the theme in use and the one being edited visible
-    const visiblePredefined = showAllPredefined
-        ? predefinedThemes
-        : predefinedThemes.filter((t, index) =>
-            index < COLLAPSED_PREDEFINED_COUNT || t.id === activeThemeId || (selection.kind === 'theme' && selection.id === t.id));
+
+    // A controlled select: if discarding unsaved changes is cancelled, it stays on the current theme
+    const handleThemeSelect = (value: string) => {
+        if (value === NEW_THEME) {
+            handleNew();
+            return;
+        }
+        const theme = themes.find(t => t.id === value);
+        if (theme) handleSelect(theme);
+    };
+    const themeLabel = (theme: Theme) => `${theme.name}${theme.id === activeThemeId ? ' · en uso' : ''}`;
 
     const confirmDiscard = () =>
         !isDirty || window.confirm('Tienes cambios sin guardar en este tema. ¿Descartarlos?');
@@ -298,10 +289,6 @@ const StoreStylePage: React.FC = () => {
     const dangerButton = buttonClass('danger');
     const disabled = busy || uploading;
 
-    const editorTitle = selection.kind === 'new'
-        ? 'Nuevo tema'
-        : isPredefined ? `${selectedTheme?.name} (predefinido)` : 'Editar tema';
-
     return (
         <>
             <PageHeader
@@ -310,55 +297,45 @@ const StoreStylePage: React.FC = () => {
                 actions={<a href={`#/store/${user?.id}`} target="_blank" rel="noopener noreferrer" className={buttonClass('secondary')}>Ver tienda</a>}
             />
 
-            <div className="space-y-10">
+            <div>
                 {loading ? (
-                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-                        {Array.from({ length: 10 }, (_, i) => <div key={i} className="h-32 animate-pulse rounded-xl bg-muted" />)}
+                    <div className="grid grid-cols-1 lg:grid-cols-[22rem_1fr] gap-8">
+                        <div className="h-[32rem] animate-pulse rounded-xl bg-muted" />
+                        <div className="h-[32rem] animate-pulse rounded-xl bg-muted" />
                     </div>
                 ) : (
                     <>
-                        <section className="space-y-4">
-                            <div>
-                                <div className="flex items-baseline justify-between gap-4">
-                                    <h2 className="text-sm font-semibold text-fg">Temas predefinidos</h2>
-                                    {predefinedThemes.length > COLLAPSED_PREDEFINED_COUNT && (
-                                        <button type="button" onClick={() => setShowAllPredefined(!showAllPredefined)} className="text-sm font-medium text-primary hover:underline">
-                                            {showAllPredefined ? 'Ver menos' : `Ver los ${predefinedThemes.length} temas`}
-                                        </button>
-                                    )}
-                                </div>
-                                <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-                                    {visiblePredefined.map(theme => (
-                                        <ThemeOption key={theme.id} name={theme.name} style={theme} selected={selection.kind === 'theme' && selection.id === theme.id} active={theme.id === activeThemeId} onClick={() => handleSelect(theme)} />
-                                    ))}
-                                </div>
-                                {predefinedThemes.length === 0 && (
-                                    <p className="text-sm text-fg-subtle">No hay temas predefinidos. ¿Se ejecutó la migración supabase/themes.sql?</p>
-                                )}
-                            </div>
-                            <div>
-                                <h2 className="text-sm font-semibold text-fg">Mis temas</h2>
-                                <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-                                    {ownThemes.map(theme => (
-                                        <ThemeOption key={theme.id} name={theme.name} style={theme} selected={selection.kind === 'theme' && selection.id === theme.id} active={theme.id === activeThemeId} onClick={() => handleSelect(theme)} />
-                                    ))}
-                                    <button
-                                        type="button"
-                                        onClick={handleNew}
-                                        className={`rounded-lg border-2 border-dashed p-2 min-h-[8rem] flex flex-col items-center justify-center gap-1 text-sm font-medium transition-colors ${selection.kind === 'new' ? 'border-primary text-primary' : 'border-control text-fg-subtle hover:border-primary hover:text-primary'}`}
-                                    >
-                                        <PlusIcon />
-                                        Nuevo tema
-                                    </button>
-                                </div>
-                            </div>
-                        </section>
-
                         <div className="grid grid-cols-1 lg:grid-cols-[22rem_1fr] gap-8 items-start">
                             <div className={`${cardClass} p-6 space-y-6`}>
-                                <h2 className="text-base font-semibold text-fg">{editorTitle}</h2>
+                                <div>
+                                    <label htmlFor="theme-select" className={labelClass}>Tema</label>
+                                    <div className="mt-1.5 flex items-center gap-2">
+                                        <ThemeSwatch style={previewStyle} className="h-10 w-12 flex-shrink-0 p-1" />
+                                        <select
+                                            id="theme-select"
+                                            value={selection.kind === 'new' ? NEW_THEME : selection.id}
+                                            onChange={(e) => handleThemeSelect(e.target.value)}
+                                            className={inputClass}
+                                        >
+                                            {selection.kind === 'new' && <option value={NEW_THEME}>Nuevo tema (sin guardar)</option>}
+                                            {ownThemes.length > 0 && (
+                                                <optgroup label="Mis temas">
+                                                    {ownThemes.map(theme => <option key={theme.id} value={theme.id}>{themeLabel(theme)}</option>)}
+                                                </optgroup>
+                                            )}
+                                            <optgroup label={`Predefinidos (${predefinedThemes.length})`}>
+                                                {predefinedThemes.map(theme => <option key={theme.id} value={theme.id}>{themeLabel(theme)}</option>)}
+                                            </optgroup>
+                                            {selection.kind !== 'new' && <option value={NEW_THEME}>+ Nuevo tema</option>}
+                                        </select>
+                                    </div>
+                                    {predefinedThemes.length === 0 && (
+                                        <p className={`${hintClass} mt-1.5`}>No hay temas predefinidos. ¿Se ejecutó la migración supabase/themes.sql?</p>
+                                    )}
+                                </div>
+
                                 {isPredefined ? (
-                                    <p className="text-xs text-fg-subtle -mt-4">Puedes probar cambios: se guardan como un tema tuyo, sin modificar el predefinido.</p>
+                                    <p className="text-xs text-fg-subtle -mt-4">Es un tema predefinido: si lo cambias, se guarda como un tema tuyo sin modificar el original.</p>
                                 ) : (
                                     <div className="-mt-2">
                                         <label htmlFor="theme-name" className="block text-sm font-medium text-fg">Nombre</label>
