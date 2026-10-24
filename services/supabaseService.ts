@@ -3,15 +3,6 @@ import { Product, Profile, Theme, ThemeStyle } from '../types.ts';
 
 const BUCKET_NAME = 'product-images';
 
-// A placeholder function to return a default image URL if Supabase is not configured
-export const getPlaceholderImageUrl = () => {
-    return `https://placehold.co/600x400/E2E8F0/4A5568?text=Product+Image`;
-};
-
-// Products saved without an image have an empty image_url; show the placeholder instead of a broken image
-const withImageFallback = (products: Product[]): Product[] =>
-    products.map(p => ({ ...p, image_url: p.image_url || getPlaceholderImageUrl() }));
-
 // --- Product Functions ---
 
 export const getProducts = async (): Promise<Product[]> => {
@@ -33,7 +24,7 @@ export const getProducts = async (): Promise<Product[]> => {
         console.error('Error fetching products:', error);
         return [];
     }
-    return withImageFallback(products as Product[]);
+    return products as Product[];
 };
 
 export const getProductsByUserId = async (userId: string): Promise<Product[]> => {
@@ -49,7 +40,7 @@ export const getProductsByUserId = async (userId: string): Promise<Product[]> =>
         console.error('Error fetching products by user ID:', error);
         return [];
     }
-    return withImageFallback(products as Product[]);
+    return products as Product[];
 };
 
 
@@ -149,9 +140,7 @@ export const getCategories = async (): Promise<string[]> => {
 
 export const uploadImage = async (file: File): Promise<string> => {
     if (!supabase) {
-        // If Supabase isn't configured, return a placeholder and log a warning.
-        console.warn("Supabase not configured. Using placeholder image.");
-        return getPlaceholderImageUrl();
+        throw new Error('No se pueden subir imágenes: Supabase no está configurado.');
     }
     
     const { data: { user } } = await supabase.auth.getUser();

@@ -19,8 +19,8 @@ import {
 } from './storeTheme.ts';
 
 const SAMPLE_PRODUCTS: Product[] = [
-    { id: -1, name: 'Producto de ejemplo', description: 'Así se ve la descripción de un producto.', price: 2900, category: 'Categoría', image_url: supabaseService.getPlaceholderImageUrl(), stock: 0, created_at: '', unit: 'unit', track_stock: false, out_of_stock: false, active: true },
-    { id: -2, name: 'Otro producto', description: 'Este aparece como no disponible.', price: 3500, category: 'Categoría', image_url: supabaseService.getPlaceholderImageUrl(), stock: 0, created_at: '', unit: 'unit', track_stock: false, out_of_stock: true, active: true },
+    { id: -1, name: 'Producto de ejemplo', description: 'Así se ve la descripción de un producto.', price: 2900, category: 'Categoría', image_url: '', stock: 0, created_at: '', unit: 'unit', track_stock: false, out_of_stock: false, active: true },
+    { id: -2, name: 'Otro producto', description: 'Este aparece como no disponible.', price: 3500, category: 'Categoría', image_url: '', stock: 0, created_at: '', unit: 'unit', track_stock: false, out_of_stock: true, active: true },
 ];
 
 // Predefined themes shown before expanding the gallery
@@ -79,7 +79,7 @@ const ThemeOption: React.FC<{ name: string; style: ThemeStyle; selected: boolean
 );
 
 const StorePreview: React.FC<{ style: ThemeStyle; businessName: string; products: Product[] }> = ({ style, businessName, products }) => {
-    const categories = Array.from(new Set(products.map(p => p.category))).slice(0, 3);
+    const categories = Array.from(new Set(products.map(p => p.category).filter(Boolean))).slice(0, 3);
 
     return (
         <div className="rounded-xl overflow-hidden border border-line shadow-soft text-[color:var(--store-text)]" style={themeStyleVars(style)}>
@@ -100,7 +100,7 @@ const StorePreview: React.FC<{ style: ThemeStyle; businessName: string; products
                         </span>
                     ))}
                 </div>
-                <h2 className="text-2xl font-bold border-b-2 border-[color:var(--store-accent-soft)] pb-2">{products[0]?.category}</h2>
+                <h2 className="text-2xl font-bold border-b-2 border-[color:var(--store-accent-soft)] pb-2">{categories[0] ?? 'Productos'}</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     {products.slice(0, 2).map(product => (
                         <ProductCard key={product.id} product={product} onClick={() => {}} />

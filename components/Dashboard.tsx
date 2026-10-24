@@ -27,9 +27,6 @@ const StatCard: React.FC<{ label: string; value: string; hint?: string }> = ({ l
     </div>
 );
 
-// Products without a picture carry the placeholder URL (see withImageFallback)
-const hasImage = (product: Product) => !!product.image_url && product.image_url !== supabaseService.getPlaceholderImageUrl();
-
 // Clicking the empty thumbnail opens the file picker and uploads the picture without going through the edit modal
 const ImagePlaceholderButton: React.FC<{ product: Product; uploading: boolean; onUploadImage: (product: Product, file: File) => void; }> = ({ product, uploading, onUploadImage }) => (
     <label
@@ -60,7 +57,7 @@ const ProductRow: React.FC<{ product: Product; uploading: boolean; onEdit: (prod
     <tr className="group border-b border-line last:border-0 transition-colors hover:bg-muted/50">
         <td className="py-3 pl-5 pr-3">
             <div className={`flex items-center gap-3 transition-opacity ${isActive(product) ? '' : 'opacity-50'}`}>
-                {hasImage(product) ? (
+                {product.image_url ? (
                     <img src={product.image_url} alt="" className="h-10 w-10 flex-shrink-0 rounded-lg border border-line object-cover" />
                 ) : (
                     <ImagePlaceholderButton product={product} uploading={uploading} onUploadImage={onUploadImage} />
@@ -70,12 +67,14 @@ const ProductRow: React.FC<{ product: Product; uploading: boolean; onEdit: (prod
                         {product.name}
                         {!isActive(product) && <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-fg-muted">Oculto</span>}
                     </p>
-                    <p className="truncate text-xs text-fg-subtle">{product.category}</p>
+                    {product.category && <p className="truncate text-xs text-fg-subtle">{product.category}</p>}
                 </div>
             </div>
         </td>
         <td className="px-3 py-3 text-sm text-fg tabular-nums whitespace-nowrap">
-            {formatPrice(product.price)}{product.unit === 'kg' && <span className="text-fg-subtle">/kg</span>}
+            {product.price > 0
+                ? <>{formatPrice(product.price)}{product.unit === 'kg' && <span className="text-fg-subtle">/kg</span>}</>
+                : <span className="text-fg-subtle" title="Sin precio">—</span>}
         </td>
         <td className="px-3 py-3 text-sm text-fg-muted tabular-nums">
             {product.track_stock ? product.stock : <span className="text-fg-subtle" title="Sin control de stock">—</span>}
@@ -249,7 +248,8 @@ const Dashboard: React.FC = () => {
     const categoryData = useMemo(() => {
         const counts: { [key: string]: number } = {};
         products.forEach(p => {
-            counts[p.category] = (counts[p.category] || 0) + 1;
+            const category = p.category || 'Sin categoría';
+            counts[category] = (counts[category] || 0) + 1;
         });
         return Object.entries(counts).map(([name, value]) => ({ name, value }));
     }, [products]);
