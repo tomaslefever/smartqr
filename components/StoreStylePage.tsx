@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { PageHeader } from './AppShell.tsx';
 import { Product, Theme, ThemeStyle } from '../types.ts';
 import * as supabaseService from '../services/supabaseService.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 import { ProductCard } from './Store.tsx';
 import { PlusIcon, UploadIcon } from './Icons.tsx';
 import ThemeSwatch from './ThemeSwatch.tsx';
+import { buttonClass, cardClass, errorBoxClass, hintClass, inputClass, labelClass, successBoxClass } from './ui.ts';
 import {
     DEFAULT_THEME_STYLE,
     PATTERN_SIZE_MAX,
@@ -35,15 +36,15 @@ const ColorField: React.FC<{ id: string; label: string; hint?: string; value: st
 
     return (
         <div>
-            <label htmlFor={id} className="block text-sm font-medium text-gray-700">{label}</label>
-            {hint && <p className="text-xs text-gray-500">{hint}</p>}
+            <label htmlFor={id} className={labelClass}>{label}</label>
+            {hint && <p className={hintClass}>{hint}</p>}
             <div className="mt-1 flex items-center gap-2">
                 <input
                     type="color"
                     aria-label={label}
                     value={value}
                     onChange={(e) => onChange(e.target.value.toUpperCase())}
-                    className="h-10 w-12 cursor-pointer rounded border border-gray-300 bg-white p-1"
+                    className="h-10 w-12 cursor-pointer rounded-lg border border-line bg-surface p-1"
                 />
                 <input
                     type="text"
@@ -56,7 +57,7 @@ const ColorField: React.FC<{ id: string; label: string; hint?: string; value: st
                         if (isHexColor(next)) onChange(next.toUpperCase());
                     }}
                     onBlur={() => setText(value)}
-                    className="block w-28 bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 font-mono text-sm text-brand-text focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary"
+                    className={`${inputClass} w-28 font-mono uppercase`}
                 />
             </div>
         </div>
@@ -67,12 +68,12 @@ const ThemeOption: React.FC<{ name: string; style: ThemeStyle; selected: boolean
     <button
         type="button"
         onClick={onClick}
-        className={`text-left rounded-lg bg-white p-2 shadow-sm border-2 transition-colors ${selected ? 'border-brand-primary' : 'border-transparent hover:border-gray-300'}`}
+        className={`text-left rounded-xl border bg-surface p-2 shadow-soft ring-2 transition focus:outline-none focus-visible:ring-primary/40 ${selected ? 'border-transparent ring-primary' : 'border-line ring-transparent hover:border-control'}`}
     >
         <ThemeSwatch style={style} />
         <div className="mt-2 flex items-center justify-between gap-2 px-1">
-            <span className="text-sm font-medium text-brand-text truncate">{name}</span>
-            {active && <span className="text-xs font-medium text-brand-primary bg-brand-primary/10 px-2 py-0.5 rounded-full whitespace-nowrap">En uso</span>}
+            <span className="text-sm font-medium text-fg truncate">{name}</span>
+            {active && <span className="text-[11px] font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full whitespace-nowrap">En uso</span>}
         </div>
     </button>
 );
@@ -81,7 +82,7 @@ const StorePreview: React.FC<{ style: ThemeStyle; businessName: string; products
     const categories = Array.from(new Set(products.map(p => p.category))).slice(0, 3);
 
     return (
-        <div className="rounded-lg overflow-hidden border border-gray-200 text-[color:var(--store-text)]" style={themeStyleVars(style)}>
+        <div className="rounded-xl overflow-hidden border border-line shadow-soft text-[color:var(--store-text)]" style={themeStyleVars(style)}>
             <div className="bg-[color:var(--store-card)] shadow-md py-5 px-4 text-center">
                 <p className="text-2xl font-bold text-[color:var(--store-accent)]">{businessName || 'Bienvenido a la Tienda'}</p>
                 <p className="mt-1 text-[color:var(--store-muted)]">Productos de calidad, a tu alcance.</p>
@@ -291,10 +292,10 @@ const StoreStylePage: React.FC = () => {
     };
 
     const tabClass = (active: boolean) =>
-        `flex-1 py-2 text-sm font-medium rounded-md transition-colors ${active ? 'bg-white text-brand-primary shadow' : 'text-gray-600 hover:text-gray-800'}`;
-    const primaryButton = 'bg-brand-primary text-white py-2 px-4 rounded-md shadow-sm text-sm font-medium hover:bg-brand-primary/90 transition-colors disabled:opacity-50';
-    const secondaryButton = 'bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50';
-    const dangerButton = 'bg-white py-2 px-4 border border-red-200 rounded-md shadow-sm text-sm font-medium text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50';
+        `flex-1 h-8 text-sm font-medium rounded-md transition-colors ${active ? 'bg-surface text-fg shadow-soft' : 'text-fg-muted hover:text-fg'}`;
+    const primaryButton = buttonClass('primary');
+    const secondaryButton = buttonClass('secondary');
+    const dangerButton = buttonClass('danger');
     const disabled = busy || uploading;
 
     const editorTitle = selection.kind === 'new'
@@ -302,30 +303,26 @@ const StoreStylePage: React.FC = () => {
         : isPredefined ? `${selectedTheme?.name} (predefinido)` : 'Editar tema';
 
     return (
-        <div className="min-h-screen bg-brand-light">
-            <header className="bg-white shadow-sm">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center gap-4">
-                    <div>
-                        <Link to="/" className="text-sm text-brand-primary hover:underline">← Volver al panel</Link>
-                        <h1 className="text-2xl font-bold text-brand-primary">Estilo de la carta</h1>
-                    </div>
-                    <Link to={`/store/${user?.id}`} target="_blank" rel="noopener noreferrer" className="bg-white text-brand-primary border border-brand-primary px-4 py-2 rounded-lg shadow-sm hover:bg-brand-primary/5 transition-colors text-sm">
-                        Ver tienda
-                    </Link>
-                </div>
-            </header>
+        <>
+            <PageHeader
+                title="Estilo de la carta"
+                description="Elige un tema para tu carta pública o crea el tuyo."
+                actions={<a href={`#/store/${user?.id}`} target="_blank" rel="noopener noreferrer" className={buttonClass('secondary')}>Ver tienda</a>}
+            />
 
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+            <div className="space-y-10">
                 {loading ? (
-                    <p className="text-center text-gray-500 py-12">Cargando temas...</p>
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+                        {Array.from({ length: 10 }, (_, i) => <div key={i} className="h-32 animate-pulse rounded-xl bg-muted" />)}
+                    </div>
                 ) : (
                     <>
                         <section className="space-y-4">
                             <div>
                                 <div className="flex items-baseline justify-between gap-4">
-                                    <h2 className="text-lg font-semibold text-brand-text">Temas predefinidos</h2>
+                                    <h2 className="text-sm font-semibold text-fg">Temas predefinidos</h2>
                                     {predefinedThemes.length > COLLAPSED_PREDEFINED_COUNT && (
-                                        <button type="button" onClick={() => setShowAllPredefined(!showAllPredefined)} className="text-sm font-medium text-brand-primary hover:underline">
+                                        <button type="button" onClick={() => setShowAllPredefined(!showAllPredefined)} className="text-sm font-medium text-primary hover:underline">
                                             {showAllPredefined ? 'Ver menos' : `Ver los ${predefinedThemes.length} temas`}
                                         </button>
                                     )}
@@ -336,11 +333,11 @@ const StoreStylePage: React.FC = () => {
                                     ))}
                                 </div>
                                 {predefinedThemes.length === 0 && (
-                                    <p className="text-sm text-gray-500">No hay temas predefinidos. ¿Se ejecutó la migración supabase/themes.sql?</p>
+                                    <p className="text-sm text-fg-subtle">No hay temas predefinidos. ¿Se ejecutó la migración supabase/themes.sql?</p>
                                 )}
                             </div>
                             <div>
-                                <h2 className="text-lg font-semibold text-brand-text">Mis temas</h2>
+                                <h2 className="text-sm font-semibold text-fg">Mis temas</h2>
                                 <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
                                     {ownThemes.map(theme => (
                                         <ThemeOption key={theme.id} name={theme.name} style={theme} selected={selection.kind === 'theme' && selection.id === theme.id} active={theme.id === activeThemeId} onClick={() => handleSelect(theme)} />
@@ -348,7 +345,7 @@ const StoreStylePage: React.FC = () => {
                                     <button
                                         type="button"
                                         onClick={handleNew}
-                                        className={`rounded-lg border-2 border-dashed p-2 min-h-[8rem] flex flex-col items-center justify-center gap-1 text-sm font-medium transition-colors ${selection.kind === 'new' ? 'border-brand-primary text-brand-primary' : 'border-gray-300 text-gray-500 hover:border-brand-primary hover:text-brand-primary'}`}
+                                        className={`rounded-lg border-2 border-dashed p-2 min-h-[8rem] flex flex-col items-center justify-center gap-1 text-sm font-medium transition-colors ${selection.kind === 'new' ? 'border-primary text-primary' : 'border-control text-fg-subtle hover:border-primary hover:text-primary'}`}
                                     >
                                         <PlusIcon />
                                         Nuevo tema
@@ -358,20 +355,20 @@ const StoreStylePage: React.FC = () => {
                         </section>
 
                         <div className="grid grid-cols-1 lg:grid-cols-[22rem_1fr] gap-8 items-start">
-                            <div className="bg-white p-6 rounded-lg shadow-md space-y-6">
-                                <h2 className="text-lg font-semibold text-brand-text">{editorTitle}</h2>
+                            <div className={`${cardClass} p-6 space-y-6`}>
+                                <h2 className="text-base font-semibold text-fg">{editorTitle}</h2>
                                 {isPredefined ? (
-                                    <p className="text-xs text-gray-500 -mt-4">Puedes probar cambios: se guardan como un tema tuyo, sin modificar el predefinido.</p>
+                                    <p className="text-xs text-fg-subtle -mt-4">Puedes probar cambios: se guardan como un tema tuyo, sin modificar el predefinido.</p>
                                 ) : (
                                     <div className="-mt-2">
-                                        <label htmlFor="theme-name" className="block text-sm font-medium text-gray-700">Nombre</label>
-                                        <input id="theme-name" type="text" value={name} maxLength={60} onChange={(e) => { setName(e.target.value); setMessage(null); }} className="mt-1 block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-brand-text focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary sm:text-sm" />
+                                        <label htmlFor="theme-name" className="block text-sm font-medium text-fg">Nombre</label>
+                                        <input id="theme-name" type="text" value={name} maxLength={60} onChange={(e) => { setName(e.target.value); setMessage(null); }} className={`${inputClass} mt-1.5`} />
                                     </div>
                                 )}
 
                                 <div className="space-y-3">
-                                    <p className="text-sm font-medium text-gray-700">Fondo de la página</p>
-                                    <div className="flex gap-1 rounded-lg bg-gray-100 p-1">
+                                    <p className="text-sm font-medium text-fg">Fondo de la página</p>
+                                    <div className="flex gap-1 rounded-lg bg-muted p-1">
                                         <button type="button" className={tabClass(draft.background_type === 'color')} onClick={() => updateDraft({ background_type: 'color' })}>Color</button>
                                         <button type="button" className={tabClass(draft.background_type === 'image')} onClick={() => updateDraft({ background_type: 'image' })}>Imagen (patrón)</button>
                                     </div>
@@ -380,20 +377,20 @@ const StoreStylePage: React.FC = () => {
                                         <div className="space-y-3">
                                             <div className="flex items-center gap-3">
                                                 {previewStyle.background_image_url ? (
-                                                    <div className="h-16 w-16 rounded-md border border-gray-300" style={{ backgroundImage: `url("${previewStyle.background_image_url}")`, backgroundRepeat: 'repeat', backgroundSize: '32px auto' }} />
+                                                    <div className="h-16 w-16 rounded-md border border-control" style={{ backgroundImage: `url("${previewStyle.background_image_url}")`, backgroundRepeat: 'repeat', backgroundSize: '32px auto' }} />
                                                 ) : (
-                                                    <div className="h-16 w-16 flex items-center justify-center rounded-md border-2 border-dashed border-gray-300"><UploadIcon /></div>
+                                                    <div className="h-16 w-16 flex items-center justify-center rounded-md border-2 border-dashed border-control"><UploadIcon /></div>
                                                 )}
-                                                <label className={`cursor-pointer text-sm font-medium text-brand-primary hover:text-brand-primary/80 ${uploading ? 'pointer-events-none opacity-50' : ''}`}>
+                                                <label className={`cursor-pointer text-sm font-medium text-primary hover:text-primary/80 ${uploading ? 'pointer-events-none opacity-50' : ''}`}>
                                                     {uploading ? 'Subiendo...' : draft.background_image_url ? 'Cambiar imagen' : 'Subir imagen'}
                                                     <input type="file" className="sr-only" accept="image/png, image/jpeg, image/gif, image/webp" onChange={handleImageChange} disabled={uploading} />
                                                 </label>
                                             </div>
-                                            <p className="text-xs text-gray-500">La imagen se repite en mosaico. Funcionan mejor las imágenes pensadas como patrón. PNG, JPG, GIF o WEBP hasta 10MB.</p>
+                                            <p className="text-xs text-fg-subtle">La imagen se repite en mosaico. Funcionan mejor las imágenes pensadas como patrón. PNG, JPG, GIF o WEBP hasta 10MB.</p>
                                             <div>
-                                                <label htmlFor="pattern-size" className="flex justify-between text-sm font-medium text-gray-700">
+                                                <label htmlFor="pattern-size" className="flex justify-between text-sm font-medium text-fg">
                                                     <span>Tamaño del patrón</span>
-                                                    <span className="text-gray-500 font-normal">{draft.background_image_size}px</span>
+                                                    <span className="text-fg-subtle font-normal">{draft.background_image_size}px</span>
                                                 </label>
                                                 <input
                                                     id="pattern-size"
@@ -403,7 +400,7 @@ const StoreStylePage: React.FC = () => {
                                                     step={10}
                                                     value={draft.background_image_size}
                                                     onChange={(e) => updateDraft({ background_image_size: Number(e.target.value) })}
-                                                    className="mt-1 w-full accent-brand-primary"
+                                                    className="mt-1 w-full accent-primary"
                                                 />
                                             </div>
                                         </div>
@@ -425,7 +422,7 @@ const StoreStylePage: React.FC = () => {
                                 <ColorField id="accent-color" label="Color de acento" hint="Nombre del negocio, categorías, precios y categoría seleccionada." value={draft.accent_color} onChange={(accent_color) => updateDraft({ accent_color })} />
 
                                 {message && (
-                                    <p className={`p-3 rounded-md text-sm ${message.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-700'}`}>{message.text}</p>
+                                    <p className={message.type === 'success' ? successBoxClass : errorBoxClass}>{message.text}</p>
                                 )}
 
                                 <div className="flex flex-wrap justify-end gap-3">
@@ -447,7 +444,7 @@ const StoreStylePage: React.FC = () => {
                                         <>
                                             {!isPredefined && <button type="button" onClick={handleDelete} disabled={disabled} className={dangerButton}>Eliminar</button>}
                                             {selectedTheme?.id === activeThemeId ? (
-                                                <span className="py-2 px-4 text-sm font-medium text-brand-primary">✓ En uso en tu tienda</span>
+                                                <span className="inline-flex h-10 items-center px-2 text-sm font-medium text-success">✓ En uso en tu tienda</span>
                                             ) : (
                                                 <button type="button" onClick={handleActivate} disabled={disabled} className={primaryButton}>{busy ? 'Aplicando...' : 'Usar en mi tienda'}</button>
                                             )}
@@ -457,14 +454,14 @@ const StoreStylePage: React.FC = () => {
                             </div>
 
                             <div className="lg:sticky lg:top-8">
-                                <p className="text-sm font-medium text-gray-700 mb-2">Vista previa en tiempo real</p>
+                                <p className="text-sm font-medium text-fg mb-2">Vista previa en tiempo real</p>
                                 <StorePreview style={previewStyle} businessName={businessName} products={previewProducts} />
                             </div>
                         </div>
                     </>
                 )}
-            </main>
-        </div>
+            </div>
+        </>
     );
 };
 

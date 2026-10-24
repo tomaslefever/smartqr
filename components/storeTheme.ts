@@ -85,6 +85,8 @@ export const themeStyleVars = (theme: ThemeStyle): React.CSSProperties => ({
     '--store-accent': theme.accent_color,
     '--store-accent-soft': `color-mix(in srgb, ${theme.accent_color} 25%, transparent)`,
     '--store-on-accent': readableOn(theme.accent_color),
+    // Native controls and scrollbars follow the store's theme, not the panel's light/dark mode
+    colorScheme: relativeLuminance(theme.background_color) < 0.2 ? 'dark' : 'light',
     backgroundColor: theme.background_color,
     ...(theme.background_type === 'image' && theme.background_image_url
         ? {

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Theme } from '../types.ts';
 import * as supabaseService from '../services/supabaseService.ts';
 import ThemeSwatch from './ThemeSwatch.tsx';
+import { cardClass, errorBoxClass } from './ui.ts';
 
 // Quick theme selector for the dashboard: one click applies a theme to the store
 const ThemePickerCard: React.FC = () => {
@@ -51,17 +52,17 @@ const ThemePickerCard: React.FC = () => {
     const activeTheme = themes.find(t => t.id === activeThemeId);
 
     return (
-        <div className="bg-white p-6 rounded-lg shadow-md">
+        <section className={`${cardClass} p-5`}>
             <div className="flex items-center justify-between gap-4 mb-1">
-                <h2 className="text-xl font-semibold text-brand-text">Estilo de la carta</h2>
-                <Link to="/estilo" className="text-sm font-medium text-brand-primary hover:underline whitespace-nowrap">Personalizar</Link>
+                <h2 className="text-sm font-semibold text-fg">Estilo de la carta</h2>
+                <Link to="/estilo" className="text-sm font-medium text-primary hover:underline whitespace-nowrap">Personalizar</Link>
             </div>
-            <p className="text-sm text-gray-600 mb-4">
-                {loading ? 'Cargando temas...' : <>En uso: <span className="font-medium text-brand-text">{activeTheme?.name ?? 'Estilo por defecto'}</span>{savingId && ' · aplicando...'}</>}
+            <p className="text-sm text-fg-muted mb-4">
+                {loading ? 'Cargando temas...' : <>En uso: <span className="font-medium text-fg">{activeTheme?.name ?? 'Estilo por defecto'}</span>{savingId && ' · aplicando...'}</>}
             </p>
-            {error && <p className="bg-red-100 text-red-700 p-3 rounded-md mb-4 text-sm">{error}</p>}
+            {error && <p className={`${errorBoxClass} mb-4`}>{error}</p>}
             {!loading && themes.length === 0 ? (
-                <p className="text-sm text-gray-500">No hay temas disponibles.</p>
+                <p className="text-sm text-fg-subtle">No hay temas disponibles.</p>
             ) : (
                 <div ref={listRef} className="grid grid-cols-4 gap-3 max-h-80 overflow-y-auto p-1 -m-1">
                     {themes.map(theme => {
@@ -74,10 +75,10 @@ const ThemePickerCard: React.FC = () => {
                                 disabled={savingId !== null}
                                 title={active ? `${theme.name} (en uso)` : `Usar ${theme.name}`}
                                 aria-pressed={active}
-                                className={`text-left rounded-md p-1 border-2 transition-colors disabled:cursor-wait ${active ? 'border-brand-primary' : 'border-transparent hover:border-gray-300'}`}
+                                className={`text-left rounded-lg p-1 ring-2 transition focus:outline-none focus-visible:ring-primary/40 disabled:cursor-wait ${active ? 'ring-primary' : 'ring-transparent hover:ring-line'}`}
                             >
                                 <ThemeSwatch style={theme} className="h-12 p-1.5" />
-                                <span className={`mt-1 block text-xs truncate ${active ? 'font-semibold text-brand-primary' : 'text-gray-600'}`}>
+                                <span className={`mt-1 block text-xs truncate ${active ? 'font-medium text-fg' : 'text-fg-muted'}`}>
                                     {theme.owner_id !== null && '★ '}{theme.name}
                                 </span>
                             </button>
@@ -85,7 +86,7 @@ const ThemePickerCard: React.FC = () => {
                     })}
                 </div>
             )}
-        </div>
+        </section>
     );
 };
 

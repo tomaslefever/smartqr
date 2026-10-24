@@ -1,68 +1,60 @@
-import React, { useState, useEffect, useCallback, useMemo, Fragment } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Product } from '../types.ts';
 import * as supabaseService from '../services/supabaseService.ts';
 import { useAuth } from '../context/AuthContext.tsx';
+import { useColorMode } from '../context/ColorModeContext.tsx';
 import ProductModal from './ProductModal.tsx';
 import Switch from './Switch.tsx';
-import SettingsModal from './SettingsModal.tsx';
 import ThemePickerCard from './ThemePickerCard.tsx';
+import { PageHeader } from './AppShell.tsx';
 import QRCode from 'qrcode';
 import QRCodeComponent, { QR_OPTIONS } from './QRCode.tsx';
-import { EditIcon, DeleteIcon, PlusIcon, PackageIcon, DollarSignIcon, BarChartIcon, ExternalLinkIcon, UserIcon, LogoutIcon, DownloadIcon, SettingsIcon, ColorSwatchIcon } from './Icons.tsx';
-
-// Fix: Import chart components from 'recharts' instead of accessing them from the window object.
+import { EditIcon, DeleteIcon, PlusIcon, DownloadIcon, SearchIcon, CopyIcon, CheckIcon, PackageIcon } from './Icons.tsx';
+import { buttonClass, cardClass, iconButtonClass, inputClass } from './ui.ts';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-// A simple dropdown menu component
-const DropdownMenu: React.FC<{ trigger: React.ReactNode; children: React.ReactNode }> = ({ trigger, children }) => {
-    const [isOpen, setIsOpen] = useState(false);
+const formatPrice = (value: number) => `$${Math.round(value).toLocaleString('es-CL')}`;
 
-    return (
-        <div className="relative">
-            <button onClick={() => setIsOpen(!isOpen)} onBlur={() => setTimeout(() => setIsOpen(false), 200)}>
-                {trigger}
-            </button>
-            {isOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-20">
-                    {children}
-                </div>
-            )}
-        </div>
-    );
+// Recharts sets colors as SVG attributes, where CSS variables do not resolve, so they are picked per mode
+const CHART_COLORS = {
+    light: { bar: '#3D6B4C', grid: '#E4E4E7', tick: '#71717A', tooltipBg: '#FFFFFF', tooltipBorder: '#E4E4E7', tooltipText: '#18181B', cursor: '#F4F4F5' },
+    dark: { bar: '#84B896', grid: '#27272C', tick: '#85858F', tooltipBg: '#131315', tooltipBorder: '#27272C', tooltipText: '#F4F4F5', cursor: '#1E1E22' },
 };
 
-
-const StatCard: React.FC<{ title: string; value: string; icon: React.ReactNode }> = ({ title, value, icon }) => (
-    <div className="bg-white p-6 rounded-lg shadow-md flex items-center space-x-4">
-        <div className="bg-brand-primary/10 text-brand-primary p-3 rounded-full">{icon}</div>
-        <div>
-            <p className="text-sm text-gray-500">{title}</p>
-            <p className="text-2xl font-bold text-brand-text">{value}</p>
-        </div>
+const StatCard: React.FC<{ label: string; value: string; hint?: string }> = ({ label, value, hint }) => (
+    <div className={`${cardClass} p-5`}>
+        <p className="text-sm text-fg-muted">{label}</p>
+        <p className="mt-2 text-2xl font-semibold tracking-tight text-fg tabular-nums">{value}</p>
+        {hint && <p className="mt-1 text-xs text-fg-subtle">{hint}</p>}
     </div>
 );
 
-const ProductListItem: React.FC<{ product: Product; onEdit: (product: Product) => void; onDelete: (id: number) => void; onToggleOutOfStock: (product: Product) => void; }> = ({ product, onEdit, onDelete, onToggleOutOfStock }) => (
-    <tr className="border-b border-gray-200 hover:bg-gray-50">
-        <td className="p-4 flex items-center">
-            <img src={product.image_url} alt={product.name} className="w-12 h-12 rounded-md object-cover mr-4"/>
-            <div>
-                <p className="font-semibold text-brand-text">{product.name}</p>
-                <p className="text-sm text-gray-500">{product.category}</p>
+const ProductRow: React.FC<{ product: Product; onEdit: (product: Product) => void; onDelete: (id: number) => void; onToggleOutOfStock: (product: Product) => void; }> = ({ product, onEdit, onDelete, onToggleOutOfStock }) => (
+    <tr className="group border-b border-line last:border-0 transition-colors hover:bg-muted/50">
+        <td className="py-3 pl-5 pr-3">
+            <div className="flex items-center gap-3">
+                <img src={product.image_url} alt="" className="h-10 w-10 flex-shrink-0 rounded-lg border border-line object-cover" />
+                <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-fg">{product.name}</p>
+                    <p className="truncate text-xs text-fg-subtle">{product.category}</p>
+                </div>
             </div>
         </td>
-        <td className="p-4 text-gray-600">${product.price.toLocaleString('es-CL')}{product.unit === 'kg' ? '/kg' : ''}</td>
-        <td className="p-4 text-gray-600">{product.track_stock ? product.stock : <span className="text-gray-400" title="Sin control de stock">—</span>}</td>
-        <td className="p-4">
+        <td className="px-3 py-3 text-sm text-fg tabular-nums whitespace-nowrap">
+            {formatPrice(product.price)}{product.unit === 'kg' && <span className="text-fg-subtle">/kg</span>}
+        </td>
+        <td className="px-3 py-3 text-sm text-fg-muted tabular-nums">
+            {product.track_stock ? product.stock : <span className="text-fg-subtle" title="Sin control de stock">—</span>}
+        </td>
+        <td className="px-3 py-3">
             <Switch checked={product.out_of_stock} onChange={() => onToggleOutOfStock(product)} label={`Marcar ${product.name} sin stock`} />
         </td>
-        <td className="p-4">
-            <div className="flex space-x-2">
-                <button onClick={() => onEdit(product)} className="text-blue-500 hover:text-blue-700 p-2 rounded-full hover:bg-blue-100 transition-colors">
+        <td className="py-3 pl-3 pr-5">
+            <div className="flex justify-end gap-1">
+                <button onClick={() => onEdit(product)} className={iconButtonClass} title="Editar" aria-label={`Editar ${product.name}`}>
                     <EditIcon />
                 </button>
-                <button onClick={() => onDelete(product.id)} className="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-100 transition-colors">
+                <button onClick={() => onDelete(product.id)} className={`${iconButtonClass} hover:!text-danger hover:!bg-danger/10`} title="Eliminar" aria-label={`Eliminar ${product.name}`}>
                     <DeleteIcon />
                 </button>
             </div>
@@ -70,14 +62,37 @@ const ProductListItem: React.FC<{ product: Product; onEdit: (product: Product) =
     </tr>
 );
 
+const SkeletonRows: React.FC = () => (
+    <>
+        {Array.from({ length: 5 }, (_, i) => (
+            <tr key={i} className="border-b border-line last:border-0">
+                <td className="py-3 pl-5 pr-3">
+                    <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 animate-pulse rounded-lg bg-muted" />
+                        <div className="space-y-2"><div className="h-3 w-32 animate-pulse rounded bg-muted" /><div className="h-2.5 w-20 animate-pulse rounded bg-muted" /></div>
+                    </div>
+                </td>
+                <td className="px-3 py-3"><div className="h-3 w-14 animate-pulse rounded bg-muted" /></td>
+                <td className="px-3 py-3"><div className="h-3 w-6 animate-pulse rounded bg-muted" /></td>
+                <td className="px-3 py-3"><div className="h-5 w-9 animate-pulse rounded-full bg-muted" /></td>
+                <td className="py-3 pl-3 pr-5" />
+            </tr>
+        ))}
+    </>
+);
+
 const Dashboard: React.FC = () => {
     const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [isProductModalOpen, setIsProductModalOpen] = useState(false);
-    const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-    const { user, signOut } = useAuth();
+    const [search, setSearch] = useState('');
+    const [categoryFilter, setCategoryFilter] = useState('');
+    const [copied, setCopied] = useState(false);
+    const { user } = useAuth();
+    const { resolved } = useColorMode();
+    const chartColors = CHART_COLORS[resolved];
 
     const fetchData = useCallback(async () => {
         if (!user) return;
@@ -116,7 +131,7 @@ const Dashboard: React.FC = () => {
         if (imageFile) {
             image_url = await supabaseService.uploadImage(imageFile);
         }
-        
+
         const productData = { ...product, image_url };
 
         const saved = 'id' in productData
@@ -129,7 +144,7 @@ const Dashboard: React.FC = () => {
         fetchData();
         handleCloseProductModal();
     };
-    
+
     const handleDeleteProduct = async (id: number) => {
         if (window.confirm('¿Estás seguro de que quieres eliminar este producto?')) {
             await supabaseService.deleteProduct(id);
@@ -152,18 +167,17 @@ const Dashboard: React.FC = () => {
     };
 
     const stats = useMemo(() => {
-        const totalProducts = products.length;
         // Only products with stock control count towards inventory figures
         const stocked = products.filter(p => p.track_stock);
-        const totalStock = stocked.reduce((sum, p) => sum + p.stock, 0);
-        const totalValue = stocked.reduce((sum, p) => sum + (p.price * p.stock), 0);
         return {
-            totalProducts,
-            totalStock,
-            totalValue
+            totalProducts: products.length,
+            unavailable: products.filter(p => p.out_of_stock).length,
+            totalStock: stocked.reduce((sum, p) => sum + p.stock, 0),
+            totalValue: stocked.reduce((sum, p) => sum + (p.price * p.stock), 0),
+            stockedCount: stocked.length,
         };
     }, [products]);
-    
+
     const categoryData = useMemo(() => {
         const counts: { [key: string]: number } = {};
         products.forEach(p => {
@@ -172,7 +186,24 @@ const Dashboard: React.FC = () => {
         return Object.entries(counts).map(([name, value]) => ({ name, value }));
     }, [products]);
 
+    const visibleProducts = useMemo(() => {
+        const term = search.trim().toLowerCase();
+        return products.filter(p =>
+            (!categoryFilter || p.category === categoryFilter) &&
+            (!term || p.name.toLowerCase().includes(term) || p.category.toLowerCase().includes(term)));
+    }, [products, search, categoryFilter]);
+
     const storeUrl = `${window.location.origin}${window.location.pathname}#/store/${user?.id}`;
+
+    const handleCopyUrl = async () => {
+        try {
+            await navigator.clipboard.writeText(storeUrl);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch (error) {
+            console.error('Error copying store URL:', error);
+        }
+    };
 
     const handleDownloadQR = async () => {
         try {
@@ -189,118 +220,136 @@ const Dashboard: React.FC = () => {
         }
     };
 
-    return (
-        <div className="min-h-screen bg-brand-light">
-            <header className="bg-white shadow-sm">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-                    <h1 className="text-2xl font-bold text-brand-primary">Panel de SmartQR</h1>
-                    <div className="flex items-center space-x-4">
-                        <Link to={`/store/${user?.id}`} target="_blank" rel="noopener noreferrer" className="bg-white text-brand-primary border border-brand-primary px-4 py-2 rounded-lg shadow-sm hover:bg-brand-primary/5 transition-colors flex items-center space-x-2">
-                            <ExternalLinkIcon />
-                            <span>Ver Tienda</span>
-                        </Link>
-                        <button onClick={() => handleOpenProductModal()} className="bg-brand-primary text-white px-4 py-2 rounded-lg shadow-md hover:bg-brand-primary/90 transition-colors flex items-center space-x-2">
-                            <PlusIcon />
-                            <span>Añadir Producto</span>
-                        </button>
-                        <DropdownMenu trigger={
-                            <button className="h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-300 transition-colors">
-                                <UserIcon />
-                            </button>
-                        }>
-                            <div className="px-4 py-2 border-b">
-                                <p className="text-sm text-gray-700">Conectado como</p>
-                                <p className="text-sm font-medium text-brand-text truncate">{user?.email}</p>
-                            </div>
-                             <button onClick={() => setIsSettingsModalOpen(true)} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
-                                <SettingsIcon />
-                                <span>Configuración</span>
-                            </button>
-                            <Link to="/estilo" className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
-                                <ColorSwatchIcon />
-                                <span>Estilo de la carta</span>
-                            </Link>
-                            <button onClick={signOut} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2">
-                                <LogoutIcon />
-                                <span>Cerrar sesión</span>
-                            </button>
-                        </DropdownMenu>
-                    </div>
-                </div>
-            </header>
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    <StatCard title="Productos Totales" value={stats.totalProducts.toString()} icon={<PackageIcon />} />
-                    <StatCard title="Artículos en Stock" value={stats.totalStock.toString()} icon={<BarChartIcon />} />
-                    <StatCard title="Valor Total del Inventario" value={`$${Math.round(stats.totalValue).toLocaleString('es-CL')}`} icon={<DollarSignIcon />} />
-                </div>
-                
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-                    <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
-                        <h2 className="text-xl font-semibold text-brand-text mb-4">Inventario de Productos</h2>
-                         <div className="overflow-x-auto">
-                            <table className="w-full text-left">
-                                <thead>
-                                    <tr className="bg-gray-50 border-b border-gray-200">
-                                        <th className="p-4 font-semibold text-gray-600">Producto</th>
-                                        <th className="p-4 font-semibold text-gray-600">Precio</th>
-                                        <th className="p-4 font-semibold text-gray-600">Stock</th>
-                                        <th className="p-4 font-semibold text-gray-600">Sin stock</th>
-                                        <th className="p-4 font-semibold text-gray-600">Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {loading ? (
-                                        <tr><td colSpan={5} className="text-center p-8 text-gray-500">Cargando productos...</td></tr>
-                                    ) : products.length > 0 ? (
-                                        products.map(p => <ProductListItem key={p.id} product={p} onEdit={() => handleOpenProductModal(p)} onDelete={handleDeleteProduct} onToggleOutOfStock={handleToggleOutOfStock} />)
-                                    ) : (
-                                        <tr><td colSpan={5} className="text-center p-8 text-gray-500">No se encontraron productos. ¡Añade el primero!</td></tr>
-                                    )}
-                                </tbody>
-                            </table>
-                         </div>
-                    </div>
-                    <div className="space-y-8">
-                        <div className="bg-white p-6 rounded-lg shadow-md">
-                           <h2 className="text-xl font-semibold text-brand-text mb-4">Código QR de la Tienda</h2>
-                            <div className="flex flex-col items-center">
-                                <QRCodeComponent url={storeUrl} />
-                                <p className="text-center mt-4 text-sm text-gray-600">Escanea este código para ver tu tienda pública.</p>
-                                <a href={storeUrl} target="_blank" rel="noopener noreferrer" className="mt-2 text-brand-primary hover:underline text-xs break-all">
-                                    {storeUrl}
-                                </a>
-                                <button 
-                                    onClick={handleDownloadQR} 
-                                    className="mt-4 bg-brand-secondary text-brand-primary border border-brand-primary/20 px-4 py-2 rounded-lg shadow-sm hover:bg-brand-accent/20 transition-colors flex items-center space-x-2 text-sm font-medium"
-                                >
-                                    <DownloadIcon />
-                                    <span>Descargar (1024px)</span>
-                                </button>
-                            </div>
-                        </div>
-                        <ThemePickerCard />
-                        <div className="bg-white p-6 rounded-lg shadow-md">
-                            <h2 className="text-xl font-semibold text-brand-text mb-4">Productos por Categoría</h2>
-                            <div style={{ width: '100%', height: 300 }}>
-                                <ResponsiveContainer>
-                                    <BarChart data={categoryData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey="name" />
-                                        <YAxis />
-                                        <Tooltip />
-                                        <Bar dataKey="value" fill="#4A7C59" />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+    const stockHint = stats.stockedCount === 0 ? 'Ningún producto maneja stock' : `${stats.stockedCount} con control de stock`;
 
-                {isProductModalOpen && <ProductModal product={editingProduct} categories={categories} onClose={handleCloseProductModal} onSave={handleSaveProduct} />}
-                {isSettingsModalOpen && user && <SettingsModal user={user} onClose={() => setIsSettingsModalOpen(false)} />}
-            </main>
-        </div>
+    return (
+        <>
+            <PageHeader
+                title="Productos"
+                description="Administra la carta de tu negocio."
+                actions={
+                    <button onClick={() => handleOpenProductModal()} className={buttonClass('primary')}>
+                        <PlusIcon />
+                        Añadir producto
+                    </button>
+                }
+            />
+
+            <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+                <StatCard label="Productos" value={loading ? '—' : stats.totalProducts.toString()} />
+                <StatCard label="No disponibles" value={loading ? '—' : stats.unavailable.toString()} hint="Marcados sin stock" />
+                <StatCard label="Artículos en stock" value={loading ? '—' : stats.totalStock.toLocaleString('es-CL')} hint={stockHint} />
+                <StatCard label="Valor del inventario" value={loading ? '—' : formatPrice(stats.totalValue)} hint={stockHint} />
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+                <section className={`${cardClass} min-w-0 overflow-hidden xl:col-span-2`}>
+                    <div className="flex flex-col gap-3 border-b border-line p-4 sm:flex-row sm:items-center">
+                        <div className="relative flex-1">
+                            <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center [&_svg]:h-4 [&_svg]:w-4 [&_svg]:text-fg-subtle"><SearchIcon /></span>
+                            <input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar productos..." aria-label="Buscar productos" className={`${inputClass} pl-9`} />
+                        </div>
+                        <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} aria-label="Filtrar por categoría" className={`${inputClass} sm:w-48`}>
+                            <option value="">Todas las categorías</option>
+                            {categories.map(category => <option key={category} value={category}>{category}</option>)}
+                        </select>
+                    </div>
+                    {/* relative: keeps absolutely positioned children (e.g. sr-only labels) inside the scroller */}
+                    <div className="relative overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead>
+                                <tr className="border-b border-line text-xs font-medium text-fg-subtle">
+                                    <th className="py-2.5 pl-5 pr-3 font-medium">Producto</th>
+                                    <th className="px-3 py-2.5 font-medium">Precio</th>
+                                    <th className="px-3 py-2.5 font-medium">Stock</th>
+                                    <th className="px-3 py-2.5 font-medium">Sin stock</th>
+                                    <th className="py-2.5 pl-3 pr-5"><span className="sr-only">Acciones</span></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {loading ? (
+                                    <SkeletonRows />
+                                ) : visibleProducts.length > 0 ? (
+                                    visibleProducts.map(p => <ProductRow key={p.id} product={p} onEdit={() => handleOpenProductModal(p)} onDelete={handleDeleteProduct} onToggleOutOfStock={handleToggleOutOfStock} />)
+                                ) : (
+                                    <tr>
+                                        <td colSpan={5} className="px-5 py-16 text-center">
+                                            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-muted text-fg-subtle [&_svg]:h-5 [&_svg]:w-5"><PackageIcon /></div>
+                                            {products.length === 0 ? (
+                                                <>
+                                                    <p className="text-sm font-medium text-fg">Aún no tienes productos</p>
+                                                    <p className="mt-1 text-sm text-fg-muted">Añade el primero para que aparezca en tu carta.</p>
+                                                    <button onClick={() => handleOpenProductModal()} className={`${buttonClass('primary', 'sm')} mt-4`}><PlusIcon />Añadir producto</button>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <p className="text-sm font-medium text-fg">Sin resultados</p>
+                                                    <p className="mt-1 text-sm text-fg-muted">Ningún producto coincide con la búsqueda.</p>
+                                                </>
+                                            )}
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                    {!loading && products.length > 0 && (
+                        <p className="border-t border-line px-5 py-3 text-xs text-fg-subtle">
+                            {visibleProducts.length === products.length ? `${products.length} productos` : `${visibleProducts.length} de ${products.length} productos`}
+                        </p>
+                    )}
+                </section>
+
+                <div className="min-w-0 space-y-6">
+                    <section className={`${cardClass} p-5`}>
+                        <h2 className="text-sm font-semibold text-fg">Código QR de la tienda</h2>
+                        <p className="mt-1 text-sm text-fg-muted">Escanéalo para abrir tu carta pública.</p>
+                        <div className="mt-5 flex justify-center">
+                            <div className="rounded-xl border border-line bg-white p-2">
+                                <QRCodeComponent url={storeUrl} />
+                            </div>
+                        </div>
+                        <div className="mt-5 flex items-center gap-2 rounded-lg border border-line bg-muted/50 py-1 pl-3 pr-1">
+                            <a href={storeUrl} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 truncate text-xs text-fg-muted hover:text-fg" title={storeUrl}>
+                                {storeUrl.replace(/^https?:\/\//, '')}
+                            </a>
+                            <button onClick={handleCopyUrl} className={iconButtonClass} title={copied ? 'Copiado' : 'Copiar enlace'} aria-label="Copiar enlace">
+                                {copied ? <span className="text-success"><CheckIcon /></span> : <CopyIcon />}
+                            </button>
+                        </div>
+                        <button onClick={handleDownloadQR} className={`${buttonClass('secondary')} mt-3 w-full`}>
+                            <DownloadIcon />
+                            Descargar QR (1024 px)
+                        </button>
+                    </section>
+
+                    <ThemePickerCard />
+
+                    <section className={`${cardClass} p-5`}>
+                        <h2 className="text-sm font-semibold text-fg">Productos por categoría</h2>
+                        <div className="mt-4 h-64">
+                            <ResponsiveContainer>
+                                <BarChart data={categoryData} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartColors.grid} />
+                                    <XAxis dataKey="name" tick={{ fill: chartColors.tick, fontSize: 11 }} axisLine={false} tickLine={false} interval={0} angle={-30} textAnchor="end" height={56} />
+                                    <YAxis allowDecimals={false} tick={{ fill: chartColors.tick, fontSize: 11 }} axisLine={false} tickLine={false} />
+                                    <Tooltip
+                                        cursor={{ fill: chartColors.cursor }}
+                                        contentStyle={{ background: chartColors.tooltipBg, border: `1px solid ${chartColors.tooltipBorder}`, borderRadius: 8, fontSize: 12, color: chartColors.tooltipText }}
+                                        labelStyle={{ color: chartColors.tooltipText, fontWeight: 600 }}
+                                        itemStyle={{ color: chartColors.tooltipText }}
+                                        formatter={(value) => [value, 'Productos']}
+                                    />
+                                    <Bar dataKey="value" fill={chartColors.bar} radius={[4, 4, 0, 0]} maxBarSize={32} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            {isProductModalOpen && <ProductModal product={editingProduct} categories={categories} onClose={handleCloseProductModal} onSave={handleSaveProduct} />}
+        </>
     );
 };
 

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
 import { Profile } from '../types.ts';
 import * as supabaseService from '../services/supabaseService.ts';
-import { CloseIcon } from './Icons.tsx';
+import Modal, { modalBodyClass, modalFooterClass } from './Modal.tsx';
+import { buttonClass, hintClass, inputClass, labelClass, textareaClass } from './ui.ts';
 
 interface SettingsModalProps {
     user: User;
@@ -59,53 +60,47 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ user, onClose }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
-            <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-full overflow-y-auto">
-                <div className="p-6 border-b flex justify-between items-center">
-                    <h2 className="text-2xl font-bold text-brand-text">Configuración del Negocio</h2>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800 p-1 rounded-full hover:bg-gray-100 transition-colors">
-                        <CloseIcon />
-                    </button>
+        <Modal title="Configuración del negocio" description="Estos datos aparecen en tu carta pública." onClose={onClose}>
+            {loading ? (
+                <div className="space-y-4 px-6 py-6">
+                    {Array.from({ length: 4 }, (_, i) => <div key={i} className="h-10 animate-pulse rounded-lg bg-muted" />)}
                 </div>
-                {loading ? (
-                    <div className="p-8 text-center">Cargando configuración...</div>
-                ) : (
-                    <form onSubmit={handleSubmit}>
-                        <div className="p-6 space-y-4">
-                            <div>
-                                <label htmlFor="business_name" className="block text-sm font-medium text-gray-700">Nombre del Negocio</label>
-                                <input type="text" name="business_name" id="business_name" value={profile.business_name ?? ''} onChange={handleChange} className="mt-1 block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-brand-text focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary sm:text-sm" />
-                            </div>
-                            <div>
-                                <label htmlFor="phone" className="block text-sm font-medium text-gray-700">Teléfono</label>
-                                <input type="tel" name="phone" id="phone" value={profile.phone ?? ''} onChange={handleChange} className="mt-1 block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-brand-text focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary sm:text-sm" />
-                            </div>
-                            <div>
-                                <label htmlFor="address" className="block text-sm font-medium text-gray-700">Dirección (Opcional)</label>
-                                <input type="text" name="address" id="address" value={profile.address ?? ''} onChange={handleChange} className="mt-1 block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-brand-text focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary sm:text-sm" />
-                            </div>
-                             <div>
-                                <label htmlFor="opening_hours" className="block text-sm font-medium text-gray-700">Horarios de Atención</label>
-                                <textarea name="opening_hours" id="opening_hours" value={profile.opening_hours ?? ''} onChange={handleChange} rows={4} placeholder="Ej: Lunes a Viernes: 9am - 6pm" className="mt-1 block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-brand-text focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary sm:text-sm"></textarea>
-                            </div>
-                            <div>
-                                <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email de Contacto</label>
-                                <input type="email" name="email" id="email" value={user.email} disabled className="mt-1 block w-full bg-gray-100 border border-gray-300 rounded-md shadow-sm py-2 px-3 text-gray-500 sm:text-sm" />
-                                <p className="mt-1 text-xs text-gray-500">El email de contacto es el mismo que el de tu cuenta.</p>
-                            </div>
+            ) : (
+                <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+                    <div className={`${modalBodyClass} space-y-4`}>
+                        <div>
+                            <label htmlFor="business_name" className={labelClass}>Nombre del negocio</label>
+                            <input type="text" name="business_name" id="business_name" value={profile.business_name ?? ''} onChange={handleChange} className={`${inputClass} mt-1.5`} />
                         </div>
-                        <div className="p-6 bg-gray-50 flex justify-end space-x-4">
-                            <button type="button" onClick={onClose} className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary/50 transition-colors">
-                                Cancelar
-                            </button>
-                            <button type="submit" disabled={saving} className="bg-brand-primary text-white py-2 px-4 rounded-md shadow-sm text-sm font-medium hover:bg-brand-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary transition-colors disabled:opacity-50">
-                                {saving ? 'Guardando...' : 'Guardar Cambios'}
-                            </button>
+                        <div>
+                            <label htmlFor="phone" className={labelClass}>Teléfono</label>
+                            <input type="tel" name="phone" id="phone" value={profile.phone ?? ''} onChange={handleChange} className={`${inputClass} mt-1.5`} />
                         </div>
-                    </form>
-                )}
-            </div>
-        </div>
+                        <div>
+                            <label htmlFor="address" className={labelClass}>Dirección <span className="font-normal text-fg-subtle">(opcional)</span></label>
+                            <input type="text" name="address" id="address" value={profile.address ?? ''} onChange={handleChange} className={`${inputClass} mt-1.5`} />
+                        </div>
+                        <div>
+                            <label htmlFor="opening_hours" className={labelClass}>Horarios de atención</label>
+                            <textarea name="opening_hours" id="opening_hours" value={profile.opening_hours ?? ''} onChange={handleChange} rows={3} placeholder="Ej: Lunes a Viernes: 9:00 - 18:00" className={`${textareaClass} mt-1.5`}></textarea>
+                        </div>
+                        <div>
+                            <label htmlFor="email" className={labelClass}>Email de la cuenta</label>
+                            <input type="email" name="email" id="email" value={user.email} disabled className={`${inputClass} mt-1.5 bg-muted text-fg-muted`} />
+                            <p className={`${hintClass} mt-1.5`}>Es el email con el que inicias sesión. No se muestra en la tienda.</p>
+                        </div>
+                    </div>
+                    <div className={modalFooterClass}>
+                        <button type="button" onClick={onClose} className={buttonClass('secondary')}>
+                            Cancelar
+                        </button>
+                        <button type="submit" disabled={saving} className={buttonClass('primary')}>
+                            {saving ? 'Guardando...' : 'Guardar cambios'}
+                        </button>
+                    </div>
+                </form>
+            )}
+        </Modal>
     );
 };
 

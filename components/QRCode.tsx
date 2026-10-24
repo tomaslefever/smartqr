@@ -24,11 +24,8 @@ const QRCodeComponent: React.FC<QRCodeProps> = ({ url }) => {
         }
     }, [url]);
 
-    return (
-        <div className="p-2 bg-white inline-block rounded-lg shadow-inner">
-            <canvas ref={canvasRef} />
-        </div>
-    );
+    // Always dark on white so it scans in any color mode; the caller provides the frame
+    return <canvas ref={canvasRef} className="block" />;
 };
 
 export default QRCodeComponent;
