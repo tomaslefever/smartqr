@@ -9,7 +9,7 @@ import ThemePickerCard from './ThemePickerCard.tsx';
 import { PageHeader } from './AppShell.tsx';
 import QRCode from 'qrcode';
 import QRCodeComponent, { QR_OPTIONS } from './QRCode.tsx';
-import { EditIcon, DeleteIcon, PlusIcon, DownloadIcon, SearchIcon, CopyIcon, CheckIcon, PackageIcon } from './Icons.tsx';
+import { EditIcon, DeleteIcon, PlusIcon, DownloadIcon, SearchIcon, CopyIcon, CheckIcon, PackageIcon, PhotoIcon } from './Icons.tsx';
 import { buttonClass, cardClass, iconButtonClass, inputClass } from './ui.ts';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -33,7 +33,11 @@ const ProductRow: React.FC<{ product: Product; onEdit: (product: Product) => voi
     <tr className="group border-b border-line last:border-0 transition-colors hover:bg-muted/50">
         <td className="py-3 pl-5 pr-3">
             <div className="flex items-center gap-3">
-                <img src={product.image_url} alt="" className="h-10 w-10 flex-shrink-0 rounded-lg border border-line object-cover" />
+                {product.image_url ? (
+                    <img src={product.image_url} alt="" className="h-10 w-10 flex-shrink-0 rounded-lg border border-line object-cover" />
+                ) : (
+                    <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-line bg-muted text-fg-subtle [&_svg]:h-4 [&_svg]:w-4" title="Sin imagen"><PhotoIcon /></span>
+                )}
                 <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-fg">{product.name}</p>
                     <p className="truncate text-xs text-fg-subtle">{product.category}</p>

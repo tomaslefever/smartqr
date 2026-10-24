@@ -6,8 +6,13 @@ import { SearchIcon, PhoneIcon, MailIcon, LocationMarkerIcon } from './Icons.tsx
 import ProductDetailModal from './ProductDetailModal.tsx';
 import { normalizeThemeStyle, themeStyleVars } from './storeTheme.ts';
 
-// Horizontal card: text on the left and a square image on the right, to fit more products per screen
-export const ProductCard: React.FC<{ product: Product; onClick: () => void; }> = ({ product, onClick }) => (
+// Horizontal card: text on the left and a square image on the right, to fit more products per screen.
+// Products without an image (or whose image fails to load) show only the text, using the full width.
+export const ProductCard: React.FC<{ product: Product; onClick: () => void; }> = ({ product, onClick }) => {
+    const [imageFailed, setImageFailed] = useState(false);
+    const showImage = Boolean(product.image_url) && !imageFailed;
+
+    return (
     <button onClick={onClick} className={`group flex w-full items-stretch gap-4 overflow-hidden rounded-xl bg-[color:var(--store-card)] p-4 text-left shadow-md transition duration-300 hover:-translate-y-0.5 hover:shadow-lg ${product.out_of_stock ? 'opacity-60' : ''}`}>
         <div className="flex min-w-0 flex-1 flex-col">
             <p className="text-xs font-semibold text-[color:var(--store-accent)]">{product.category}</p>
@@ -18,11 +23,14 @@ export const ProductCard: React.FC<{ product: Product; onClick: () => void; }> =
                 {product.out_of_stock && <p className="text-xs font-medium text-[color:var(--store-muted)] bg-[color:var(--store-subtle)] px-2 py-0.5 rounded-full">No disponible</p>}
             </div>
         </div>
-        <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg sm:h-28 sm:w-28">
-            <img src={product.image_url} alt={product.name} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
-        </div>
+        {showImage && (
+            <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg sm:h-28 sm:w-28">
+                <img src={product.image_url} alt={product.name} onError={() => setImageFailed(true)} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+            </div>
+        )}
     </button>
-);
+    );
+};
 
 
 const Store: React.FC = () => {
