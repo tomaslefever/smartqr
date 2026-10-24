@@ -4,19 +4,20 @@ import { Product, Profile } from '../types.ts';
 import * as supabaseService from '../services/supabaseService.ts';
 import { SearchIcon, PhoneIcon, MailIcon, LocationMarkerIcon } from './Icons.tsx';
 import ProductDetailModal from './ProductDetailModal.tsx';
+import { normalizeStoreTheme, storeThemeStyle } from './storeTheme.ts';
 
-const ProductCard: React.FC<{ product: Product; onClick: () => void; }> = ({ product, onClick }) => (
-    <button onClick={onClick} className={`bg-white rounded-xl shadow-lg overflow-hidden transform hover:-translate-y-1 transition-transform duration-300 group text-left w-full ${product.out_of_stock ? 'opacity-60' : ''}`}>
+export const ProductCard: React.FC<{ product: Product; onClick: () => void; }> = ({ product, onClick }) => (
+    <button onClick={onClick} className={`bg-[color:var(--store-card)] rounded-xl shadow-lg overflow-hidden transform hover:-translate-y-1 transition-transform duration-300 group text-left w-full ${product.out_of_stock ? 'opacity-60' : ''}`}>
         <div className="overflow-hidden">
              <img src={product.image_url} alt={product.name} className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300" />
         </div>
         <div className="p-6">
-            <p className="text-sm text-brand-primary font-semibold">{product.category}</p>
-            <h3 className="text-xl font-bold text-brand-text mt-1 truncate">{product.name}</h3>
-            <p className="text-gray-600 mt-2 text-sm h-10 overflow-hidden">{product.description}</p>
+            <p className="text-sm text-[color:var(--store-accent)] font-semibold">{product.category}</p>
+            <h3 className="text-xl font-bold text-[color:var(--store-text)] mt-1 truncate">{product.name}</h3>
+            <p className="text-[color:var(--store-muted)] mt-2 text-sm h-10 overflow-hidden">{product.description}</p>
             <div className="mt-4 flex justify-between items-center">
-                <p className="text-2xl font-bold text-brand-primary">${product.price.toLocaleString('es-CL')}{product.unit === 'kg' ? <span className="text-base font-normal text-gray-600">/kg</span> : ''}</p>
-                {product.out_of_stock && <p className="text-sm font-medium text-gray-600 bg-gray-100 px-2 py-1 rounded-full">No disponible</p>}
+                <p className="text-2xl font-bold text-[color:var(--store-accent)]">${product.price.toLocaleString('es-CL')}{product.unit === 'kg' ? <span className="text-base font-normal text-[color:var(--store-muted)]">/kg</span> : ''}</p>
+                {product.out_of_stock && <p className="text-sm font-medium text-[color:var(--store-muted)] bg-[color:var(--store-subtle)] px-2 py-1 rounded-full">No disponible</p>}
             </div>
         </div>
     </button>
@@ -138,18 +139,19 @@ const Store: React.FC = () => {
     };
 
     const displayCategories = Object.keys(productsByCategory);
+    const theme = useMemo(() => normalizeStoreTheme(profile?.store_theme), [profile]);
 
     return (
-        <div className="min-h-screen bg-brand-light flex flex-col">
-            <header className="bg-white shadow-md sticky top-0 z-10">
+        <div className="min-h-screen flex flex-col text-[color:var(--store-text)]" style={storeThemeStyle(theme)}>
+            <header className="bg-[color:var(--store-card)] shadow-md sticky top-0 z-10">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center">
-                    <h1 className="text-4xl font-bold text-brand-primary">{profile?.business_name || 'Bienvenido a la Tienda'}</h1>
-                    <p className="mt-2 text-lg text-brand-text opacity-90">Productos de calidad, a tu alcance.</p>
+                    <h1 className="text-4xl font-bold text-[color:var(--store-accent)]">{profile?.business_name || 'Bienvenido a la Tienda'}</h1>
+                    <p className="mt-2 text-lg text-[color:var(--store-muted)]">Productos de calidad, a tu alcance.</p>
                 </div>
             </header>
             
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
-                <div className="bg-white rounded-lg shadow-sm p-4 mb-8 sticky top-[110px] z-10 flex flex-col sm:flex-row gap-4 items-center">
+                <div className="bg-[color:var(--store-card)] rounded-lg shadow-sm p-4 mb-8 sticky top-[110px] z-10 flex flex-col sm:flex-row gap-4 items-center">
                     <div className="relative flex-grow w-full sm:w-auto">
                         <span className="absolute inset-y-0 left-0 flex items-center pl-3">
                             <SearchIcon />
@@ -159,7 +161,7 @@ const Store: React.FC = () => {
                             placeholder="Buscar productos..."
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-full focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary transition"
+                            className="w-full pl-10 pr-4 py-2 bg-transparent text-[color:var(--store-text)] placeholder:text-[color:var(--store-muted)] border border-[color:var(--store-border)] rounded-full focus:outline-none focus:ring-2 focus:ring-[color:var(--store-accent-soft)] focus:border-[color:var(--store-accent)] transition"
                         />
                     </div>
                     <div ref={categoryBarRef} className="no-scrollbar flex-shrink-0 flex items-center gap-2 overflow-x-auto pb-2 w-full sm:w-auto">
@@ -170,8 +172,8 @@ const Store: React.FC = () => {
                                 onClick={() => handleCategoryClick(category)}
                                 className={`px-4 py-2 text-sm font-medium rounded-full transition-colors whitespace-nowrap ${
                                     selectedCategory === category
-                                        ? 'bg-brand-primary text-white shadow'
-                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                        ? 'bg-[color:var(--store-accent)] text-[color:var(--store-on-accent)] shadow'
+                                        : 'bg-[color:var(--store-subtle)] text-[color:var(--store-text)] hover:bg-[color:var(--store-border)]'
                                 }`}
                             >
                                 {category}
@@ -181,9 +183,9 @@ const Store: React.FC = () => {
                 </div>
 
                 {loading ? (
-                    <div className="text-center text-gray-600 text-xl py-12">Cargando productos frescos...</div>
+                    <div className="text-center text-[color:var(--store-muted)] text-xl py-12">Cargando productos frescos...</div>
                 ) : !userId || products.length === 0 && searchTerm === '' ? (
-                     <div className="text-center text-gray-500 py-12">
+                     <div className="text-center text-[color:var(--store-muted)] py-12">
                         <h2 className="text-2xl font-semibold">Tienda no encontrada o vacía</h2>
                         <p className="mt-2">Esta tienda puede no existir o aún no tener productos.</p>
                     </div>
@@ -195,7 +197,7 @@ const Store: React.FC = () => {
                                 // Fix: The ref callback must not return a value. Switched to a block body to ensure a void return type.
                                 ref={el => { sectionRefs.current[category] = el; }}
                             >
-                                <h2 className="text-3xl font-bold text-brand-text mb-6 border-b-2 border-brand-primary/20 pb-2">{category}</h2>
+                                <h2 className="text-3xl font-bold text-[color:var(--store-text)] mb-6 border-b-2 border-[color:var(--store-accent-soft)] pb-2">{category}</h2>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                                     {productsByCategory[category].map(product => (
                                         <ProductCard key={product.id} product={product} onClick={() => setSelectedProduct(product)} />
@@ -205,50 +207,50 @@ const Store: React.FC = () => {
                         ))}
                     </div>
                 ) : (
-                     <div className="text-center text-gray-500 py-12">
+                     <div className="text-center text-[color:var(--store-muted)] py-12">
                         <h2 className="text-2xl font-semibold">No se encontraron productos</h2>
                         <p className="mt-2">Intenta cambiar los filtros o el término de búsqueda.</p>
                     </div>
                 )}
                  
             </main>
-            <footer className="bg-white border-t mt-12">
-                <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8 text-brand-text">
+            <footer className="bg-[color:var(--store-card)] border-t border-[color:var(--store-border)] mt-12">
+                <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8 text-[color:var(--store-text)]">
                     {profile && (profile.business_name || profile.address || profile.phone || profile.email || profile.opening_hours) ? (
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center md:text-left">
                             <div className="flex flex-col items-center md:items-start">
-                                <h3 className="text-xl font-bold text-brand-primary">{profile.business_name || 'Nuestra Tienda'}</h3>
+                                <h3 className="text-xl font-bold text-[color:var(--store-accent)]">{profile.business_name || 'Nuestra Tienda'}</h3>
                                 {profile.address && 
-                                    <div className="mt-4 flex items-center text-gray-600">
+                                    <div className="mt-4 flex items-center text-[color:var(--store-muted)]">
                                         <LocationMarkerIcon />
                                         <p className="ml-2">{profile.address}</p>
                                     </div>
                                 }
                             </div>
                             <div className="flex flex-col items-center md:items-start">
-                                <h3 className="text-xl font-bold text-brand-primary">Contacto</h3>
+                                <h3 className="text-xl font-bold text-[color:var(--store-accent)]">Contacto</h3>
                                 {profile.phone && 
-                                    <div className="mt-4 flex items-center text-gray-600">
+                                    <div className="mt-4 flex items-center text-[color:var(--store-muted)]">
                                         <PhoneIcon />
                                         <p className="ml-2">{profile.phone}</p>
                                     </div>
                                 }
                                 {profile.email && 
-                                    <div className="mt-2 flex items-center text-gray-600">
+                                    <div className="mt-2 flex items-center text-[color:var(--store-muted)]">
                                         <MailIcon />
                                         <p className="ml-2">{profile.email}</p>
                                     </div>
                                 }
                             </div>
                             <div className="flex flex-col items-center md:items-start">
-                                <h3 className="text-xl font-bold text-brand-primary">Horarios</h3>
+                                <h3 className="text-xl font-bold text-[color:var(--store-accent)]">Horarios</h3>
                                 {profile.opening_hours ? (
-                                    <pre className="mt-4 text-gray-600 font-sans whitespace-pre-wrap text-center md:text-left">{profile.opening_hours}</pre>
-                                ) : <p className="mt-4 text-gray-600">Consulte nuestros horarios.</p>}
+                                    <pre className="mt-4 text-[color:var(--store-muted)] font-sans whitespace-pre-wrap text-center md:text-left">{profile.opening_hours}</pre>
+                                ) : <p className="mt-4 text-[color:var(--store-muted)]">Consulte nuestros horarios.</p>}
                             </div>
                         </div>
                     ) : null}
-                    <div className="mt-12 border-t border-gray-200 pt-8 text-center text-gray-500">
+                    <div className="mt-12 border-t border-[color:var(--store-border)] pt-8 text-center text-[color:var(--store-muted)]">
                        <p>&copy; {new Date().getFullYear()} SmartQR. Todos los derechos reservados.</p>
                     </div>
                 </div>

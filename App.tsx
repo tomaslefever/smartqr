@@ -1,6 +1,7 @@
 import React from 'react';
 import Dashboard from './components/Dashboard.tsx';
 import Store from './components/Store.tsx';
+import StoreStylePage from './components/StoreStylePage.tsx';
 import Login from './components/auth/Login.tsx';
 import Register from './components/auth/Register.tsx';
 import AuthLayout from './components/auth/AuthLayout.tsx';
@@ -18,6 +19,14 @@ const App: React.FC = () => {
             <Route path="/register" element={<Register />} />
           </Route>
           <Route path="/store/:userId" element={<Store />} />
+          <Route
+            path="/estilo"
+            element={
+              <PrivateRoute>
+                <StoreStylePage />
+              </PrivateRoute>
+            }
+          />
           <Route 
             path="/" 
             element={

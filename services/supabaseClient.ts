@@ -14,7 +14,7 @@ declare global {
 //    SUPABASE_URL y SUPABASE_ANON_KEY al momento de ejecutar (Docker / Easypanel).
 // 2. VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY, leídas al compilar (útil con `npm run dev` y .env.local).
 const runtimeConfig = window.__SMARTQR_CONFIG__ ?? {};
-const supabaseUrl = runtimeConfig.supabaseUrl || import.meta.env.VITE_SUPABASE_URL || '';
+export const supabaseUrl = runtimeConfig.supabaseUrl || import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = runtimeConfig.supabaseAnonKey || import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 // NOTA DE CONFIGURACIÓN IMPORTANTE:

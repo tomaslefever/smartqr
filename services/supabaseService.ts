@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient.ts';
-import { Product, Profile } from '../types.ts';
+import { Product, Profile, StoreTheme } from '../types.ts';
 
 const BUCKET_NAME = 'product-images';
 
@@ -251,4 +251,22 @@ export const updateProfile = async (profileData: Omit<Profile, 'email'>): Promis
         return null;
     }
     return data as Profile;
+};
+
+export const updateStoreTheme = async (theme: StoreTheme): Promise<boolean> => {
+    if (!supabase) return false;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
+
+    // Upsert with only these columns, so the business details in the profile are left as they are
+    const { error } = await supabase
+        .from('profiles')
+        .upsert({ id: user.id, store_theme: theme });
+
+    if (error) {
+        console.error('Error updating store theme:', error);
+        return false;
+    }
+    return true;
 };

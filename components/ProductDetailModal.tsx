@@ -32,7 +32,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
             aria-labelledby="product-title"
         >
             <div 
-                className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col md:flex-row overflow-hidden transition-all duration-300 ease-out"
+                className="bg-[color:var(--store-card)] rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col md:flex-row overflow-hidden transition-all duration-300 ease-out"
                 style={{ transform: isVisible ? 'scale(1)' : 'scale(0.95)', opacity: isVisible ? 1 : 0 }}
                 onClick={(e) => e.stopPropagation()} // Prevent clicks inside from closing the modal
             >
@@ -45,20 +45,20 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                 <div className="w-full md:w-1/2 p-8 flex flex-col relative overflow-y-auto">
                     <button 
                         onClick={handleClose} 
-                        className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 p-2 rounded-full hover:bg-gray-100 transition-colors"
+                        className="absolute top-4 right-4 text-[color:var(--store-muted)] hover:text-[color:var(--store-text)] p-2 rounded-full hover:bg-[color:var(--store-subtle)] transition-colors"
                         aria-label="Cerrar modal"
                     >
                        <CloseIcon />
                     </button>
                     
-                    <p className="text-sm text-brand-primary font-semibold mb-2">{product.category}</p>
-                    <h2 id="product-title" className="text-3xl lg:text-4xl font-bold text-brand-text mb-4">{product.name}</h2>
+                    <p className="text-sm text-[color:var(--store-accent)] font-semibold mb-2">{product.category}</p>
+                    <h2 id="product-title" className="text-3xl lg:text-4xl font-bold text-[color:var(--store-text)] mb-4">{product.name}</h2>
                     
-                    <p className="text-gray-600 mb-6 flex-grow">{product.description}</p>
+                    <p className="text-[color:var(--store-muted)] mb-6 flex-grow">{product.description}</p>
                     
-                    <div className="mt-auto flex justify-between items-center pt-4 border-t">
-                        <p className="text-3xl font-bold text-brand-primary">${product.price.toLocaleString('es-CL')}{product.unit === 'kg' ? <span className="text-xl font-normal text-gray-600">/kg</span> : ''}</p>
-                        {product.out_of_stock && <p className="text-md font-medium text-gray-600 bg-gray-100 px-3 py-1 rounded-full">No disponible</p>}
+                    <div className="mt-auto flex justify-between items-center pt-4 border-t border-[color:var(--store-border)]">
+                        <p className="text-3xl font-bold text-[color:var(--store-accent)]">${product.price.toLocaleString('es-CL')}{product.unit === 'kg' ? <span className="text-xl font-normal text-[color:var(--store-muted)]">/kg</span> : ''}</p>
+                        {product.out_of_stock && <p className="text-md font-medium text-[color:var(--store-muted)] bg-[color:var(--store-subtle)] px-3 py-1 rounded-full">No disponible</p>}
                     </div>
                 </div>
             </div>

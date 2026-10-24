@@ -8,7 +8,7 @@ import Switch from './Switch.tsx';
 import SettingsModal from './SettingsModal.tsx';
 import QRCode from 'qrcode';
 import QRCodeComponent, { QR_OPTIONS } from './QRCode.tsx';
-import { EditIcon, DeleteIcon, PlusIcon, PackageIcon, DollarSignIcon, BarChartIcon, ExternalLinkIcon, UserIcon, LogoutIcon, DownloadIcon, SettingsIcon } from './Icons.tsx';
+import { EditIcon, DeleteIcon, PlusIcon, PackageIcon, DollarSignIcon, BarChartIcon, ExternalLinkIcon, UserIcon, LogoutIcon, DownloadIcon, SettingsIcon, ColorSwatchIcon } from './Icons.tsx';
 
 // Fix: Import chart components from 'recharts' instead of accessing them from the window object.
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -215,6 +215,10 @@ const Dashboard: React.FC = () => {
                                 <SettingsIcon />
                                 <span>Configuración</span>
                             </button>
+                            <Link to="/estilo" className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+                                <ColorSwatchIcon />
+                                <span>Estilo de la carta</span>
+                            </Link>
                             <button onClick={signOut} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2">
                                 <LogoutIcon />
                                 <span>Cerrar sesión</span>
