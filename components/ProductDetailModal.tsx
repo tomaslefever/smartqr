@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Product } from '../types.ts';
 import { CloseIcon } from './Icons.tsx';
+import BlurText from './reactbits/BlurText.tsx';
 
 interface ProductDetailModalProps {
     product: Product;
@@ -55,7 +56,9 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                     </button>
                     
                     {product.category && <p className="text-sm text-[color:var(--store-accent)] font-semibold mb-2">{product.category}</p>}
-                    <h2 id="product-title" className="text-3xl lg:text-4xl font-bold text-[color:var(--store-text)] mb-4 pr-10">{product.name}</h2>
+                    <h2 id="product-title" className="text-3xl lg:text-4xl font-bold text-[color:var(--store-text)] mb-4 pr-10">
+                        <BlurText text={product.name} delay={70} distance={16} trigger="load" />
+                    </h2>
                     
                     {product.description && <p className="text-[color:var(--store-muted)] mb-6 flex-grow whitespace-pre-line">{product.description}</p>}
 

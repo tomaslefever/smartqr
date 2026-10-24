@@ -44,6 +44,12 @@ Otros comandos:
 - `npm run build`: genera el build de producción en `dist/`.
 - `npm start`: sirve `dist/` con `server.js` (requiere `npm run build` antes).
 
+## Animaciones (React Bits)
+
+Las animaciones y efectos vienen de [React Bits](https://reactbits.dev), en su variante TypeScript + Tailwind. Los componentes se copian tal cual en [`components/reactbits/`](components/reactbits/) y [`components/effects.tsx`](components/effects.tsx) los adapta a los colores del panel. Para sumar otro, copia su archivo desde `https://reactbits.dev/r/<Nombre>-TS-TW.json` (campo `files[].content`) a esa carpeta e instala las dependencias que indique (`motion`, `gsap`).
+
+Todos respetan la preferencia del sistema de reducir el movimiento.
+
 ## Docker
 
 ```bash

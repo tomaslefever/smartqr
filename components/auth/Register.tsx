@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.tsx';
 import { GoogleIcon } from '../Icons.tsx';
 import { buttonClass, errorBoxClass, inputClass, labelClass } from '../ui.ts';
+import BlurText from '../reactbits/BlurText.tsx';
 
 const Register: React.FC = () => {
     const [email, setEmail] = useState('');
@@ -38,7 +39,9 @@ const Register: React.FC = () => {
 
     return (
         <div>
-            <h2 className="text-xl font-semibold tracking-tight text-fg text-center">Crear una cuenta</h2>
+            <h2 className="text-xl font-semibold tracking-tight text-fg">
+                <BlurText text="Crear una cuenta" delay={80} distance={10} trigger="load" className="justify-center" />
+            </h2>
             <p className="text-center text-sm text-fg-muted mt-1.5 mb-6">Comienza a gestionar tu tienda hoy mismo.</p>
             
             {error && <p className={`${errorBoxClass} mb-4`}>{error}</p>}

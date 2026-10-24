@@ -5,32 +5,60 @@ import * as supabaseService from '../services/supabaseService.ts';
 import { SearchIcon, PhoneIcon, MailIcon, LocationMarkerIcon } from './Icons.tsx';
 import ProductDetailModal from './ProductDetailModal.tsx';
 import { normalizeThemeStyle, themeStyleVars } from './storeTheme.ts';
+import AnimatedContent from './reactbits/AnimatedContent.tsx';
+import BlurText from './reactbits/BlurText.tsx';
+import ShinyText from './reactbits/ShinyText.tsx';
+import SpotlightCard from './reactbits/SpotlightCard.tsx';
+
+// Card shadow, raised on hover. Set through a variable because SpotlightCard draws its own box-shadow.
+const CARD_SHADOW =
+    '[--card-shadow:0_4px_6px_-1px_rgb(0_0_0/0.1),0_2px_4px_-2px_rgb(0_0_0/0.1)] ' +
+    'hover:[--card-shadow:0_10px_15px_-3px_rgb(0_0_0/0.1),0_4px_6px_-4px_rgb(0_0_0/0.1)]';
 
 // Horizontal card: name, description and price on the left and a square image on the right.
 // Only the name is always there: description, price (when above 0) and image show only if the product
 // has them, and without an image (or if it fails to load) the text uses the full width.
+// The background lights up in the theme's accent color around the pointer. The outer div is what list
+// animations move and fade, so they cannot override the dimming of unavailable products.
 export const ProductCard: React.FC<{ product: Product; onClick: () => void; }> = ({ product, onClick }) => {
     const [imageFailed, setImageFailed] = useState(false);
     const showImage = Boolean(product.image_url) && !imageFailed;
 
     return (
-    <button onClick={onClick} className={`group flex w-full items-stretch gap-4 overflow-hidden rounded-xl bg-[color:var(--store-card)] p-4 text-left shadow-md transition duration-300 hover:-translate-y-0.5 hover:shadow-lg ${product.out_of_stock ? 'opacity-60' : ''}`}>
-        <div className="flex min-w-0 flex-1 flex-col">
-            <h3 className="text-base font-bold leading-snug text-[color:var(--store-text)] line-clamp-2 sm:text-lg">{product.name}</h3>
-            {product.description && <p className="mt-1 text-sm text-[color:var(--store-muted)] line-clamp-2">{product.description}</p>}
-            {(product.price > 0 || product.out_of_stock) && (
-                <div className="mt-auto flex flex-wrap items-center gap-2 pt-3">
-                    {product.price > 0 && <p className="text-lg font-bold text-[color:var(--store-accent)]">${product.price.toLocaleString('es-CL')}{product.unit === 'kg' ? <span className="text-sm font-normal text-[color:var(--store-muted)]">/kg</span> : ''}</p>}
-                    {product.out_of_stock && <p className="text-xs font-medium text-[color:var(--store-muted)] bg-[color:var(--store-subtle)] px-2 py-0.5 rounded-full">No disponible</p>}
-                </div>
-            )}
+        <div className="h-full">
+            <SpotlightCard
+                theme="light"
+                spotlightColor="var(--store-accent)"
+                intensity={0.5}
+                borderGlow={0.8}
+                spotlightSize={200}
+                proximity={0}
+                className={`h-full !rounded-xl !p-0 transition-[transform,box-shadow] duration-300 hover:-translate-y-0.5 ${CARD_SHADOW} ${product.out_of_stock ? 'opacity-60' : ''}`}
+                style={{
+                    '--spotlight-card-surface': 'var(--store-card)',
+                    '--spotlight-card-border': 'transparent',
+                    '--spotlight-card-shadow': 'var(--card-shadow)',
+                } as React.CSSProperties}
+            >
+                <button onClick={onClick} className="group flex h-full w-full items-stretch gap-4 rounded-xl p-4 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--store-accent)]">
+                    <div className="flex min-w-0 flex-1 flex-col">
+                        <h3 className="text-base font-bold leading-snug text-[color:var(--store-text)] line-clamp-2 sm:text-lg">{product.name}</h3>
+                        {product.description && <p className="mt-1 text-sm text-[color:var(--store-muted)] line-clamp-2">{product.description}</p>}
+                        {(product.price > 0 || product.out_of_stock) && (
+                            <div className="mt-auto flex flex-wrap items-center gap-2 pt-3">
+                                {product.price > 0 && <p className="text-lg font-bold text-[color:var(--store-accent)]">${product.price.toLocaleString('es-CL')}{product.unit === 'kg' ? <span className="text-sm font-normal text-[color:var(--store-muted)]">/kg</span> : ''}</p>}
+                                {product.out_of_stock && <p className="text-xs font-medium text-[color:var(--store-muted)] bg-[color:var(--store-subtle)] px-2 py-0.5 rounded-full">No disponible</p>}
+                            </div>
+                        )}
+                    </div>
+                    {showImage && (
+                        <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg sm:h-28 sm:w-28">
+                            <img src={product.image_url} alt={product.name} onError={() => setImageFailed(true)} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                        </div>
+                    )}
+                </button>
+            </SpotlightCard>
         </div>
-        {showImage && (
-            <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg sm:h-28 sm:w-28">
-                <img src={product.image_url} alt={product.name} onError={() => setImageFailed(true)} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
-            </div>
-        )}
-    </button>
     );
 };
 
@@ -189,14 +217,20 @@ const Store: React.FC = () => {
 
     // Avoid flashing the default style before the business's theme is known
     if (loading) {
-        return <div className="min-h-screen flex items-center justify-center text-gray-500">Cargando...</div>;
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <ShinyText text="Cargando..." color="#6B7280" shineColor="#D1D5DB" speed={1.5} />
+            </div>
+        );
     }
 
     return (
         <div className="min-h-screen flex flex-col text-[color:var(--store-text)]" style={themeStyleVars(themeStyle)}>
             <header ref={headerRef} className="bg-[color:var(--store-card)] shadow-md sm:sticky sm:top-0 z-20">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center">
-                    <h1 className="text-3xl font-bold text-[color:var(--store-accent)] sm:text-4xl">{profile?.business_name || 'Bienvenido a la Tienda'}</h1>
+                    <h1 className="text-3xl font-bold text-[color:var(--store-accent)] sm:text-4xl">
+                        <BlurText text={profile?.business_name || 'Bienvenido a la Tienda'} delay={90} trigger="load" className="justify-center" />
+                    </h1>
                     <p className="mt-2 text-lg text-[color:var(--store-muted)]">Productos de calidad, a tu alcance.</p>
                 </div>
             </header>
@@ -248,11 +282,12 @@ const Store: React.FC = () => {
                                 ref={el => { sectionRefs.current[category] = el; }}
                             >
                                 {category && <h2 className="text-2xl font-bold text-[color:var(--store-text)] mb-4 border-b-2 border-[color:var(--store-accent-soft)] pb-2">{category}</h2>}
-                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                                {/* Cards slide in one after another as the section scrolls into view */}
+                                <AnimatedContent distance={24} duration={0.5} ease="power2.out" stagger={0.06} className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                                     {productsByCategory[category].map(product => (
                                         <ProductCard key={product.id} product={product} onClick={() => setSelectedProduct(product)} />
                                     ))}
-                                </div>
+                                </AnimatedContent>
                             </section>
                         ))}
                     </div>

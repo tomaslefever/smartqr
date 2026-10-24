@@ -8,6 +8,7 @@ import * as supabaseService from '../services/supabaseService.ts';
 import { PageHeader } from './AppShell.tsx';
 import { DeleteIcon, GripIcon, PlusIcon, TagIcon } from './Icons.tsx';
 import { buttonClass, cardClass, errorBoxClass, iconButtonClass, inputClass } from './ui.ts';
+import { Reveal } from './effects.tsx';
 
 const NAME_MAX_LENGTH = 60;
 
@@ -188,7 +189,7 @@ const CategoriesPage: React.FC = () => {
         <>
             <PageHeader title="Categorías" description="Organiza tu carta. Tu tienda muestra las categorías en este orden." />
 
-            <div className="max-w-2xl space-y-4">
+            <Reveal stagger={0.08} delay={0.1} className="max-w-2xl space-y-4">
                 <form onSubmit={handleCreate} className="flex gap-2">
                     <input
                         value={newName}
@@ -239,7 +240,7 @@ const CategoriesPage: React.FC = () => {
                         </p>
                     )}
                 </section>
-            </div>
+            </Reveal>
         </>
     );
 };

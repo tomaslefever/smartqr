@@ -7,6 +7,8 @@ import { ProductCard } from './Store.tsx';
 import { UploadIcon } from './Icons.tsx';
 import ThemeSwatch from './ThemeSwatch.tsx';
 import { buttonClass, cardClass, errorBoxClass, hintClass, inputClass, labelClass, successBoxClass } from './ui.ts';
+import { Reveal, usePanelColors } from './effects.tsx';
+import ShinyText from './reactbits/ShinyText.tsx';
 import {
     DEFAULT_THEME_STYLE,
     PATTERN_SIZE_MAX,
@@ -99,6 +101,7 @@ const StorePreview: React.FC<{ style: ThemeStyle; businessName: string; products
 
 const StoreStylePage: React.FC = () => {
     const { user } = useAuth();
+    const { mode, success } = usePanelColors();
     const [themes, setThemes] = useState<Theme[]>([]);
     const [activeThemeId, setActiveThemeId] = useState<string | null>(null);
     const [selection, setSelection] = useState<Selection>({ kind: 'new' });
@@ -305,7 +308,7 @@ const StoreStylePage: React.FC = () => {
                     </div>
                 ) : (
                     <>
-                        <div className="grid grid-cols-1 lg:grid-cols-[22rem_1fr] gap-8 items-start">
+                        <Reveal stagger={0.1} delay={0.1} className="grid grid-cols-1 lg:grid-cols-[22rem_1fr] gap-8 items-start">
                             <div className={`${cardClass} p-6 space-y-6`}>
                                 <div>
                                     <label htmlFor="theme-select" className={labelClass}>Tema</label>
@@ -421,7 +424,7 @@ const StoreStylePage: React.FC = () => {
                                         <>
                                             {!isPredefined && <button type="button" onClick={handleDelete} disabled={disabled} className={dangerButton}>Eliminar</button>}
                                             {selectedTheme?.id === activeThemeId ? (
-                                                <span className="inline-flex h-10 items-center px-2 text-sm font-medium text-success">✓ En uso en tu tienda</span>
+                                                <ShinyText text="✓ En uso en tu tienda" color={success} shineColor={mode === 'dark' ? '#D1FAE5' : '#86EFAC'} speed={2.5} delay={3} className="inline-flex h-10 items-center px-2 text-sm font-medium" />
                                             ) : (
                                                 <button type="button" onClick={handleActivate} disabled={disabled} className={primaryButton}>{busy ? 'Aplicando...' : 'Usar en mi tienda'}</button>
                                             )}
@@ -434,7 +437,7 @@ const StoreStylePage: React.FC = () => {
                                 <p className="text-sm font-medium text-fg mb-2">Vista previa en tiempo real</p>
                                 <StorePreview style={previewStyle} businessName={businessName} products={previewProducts} />
                             </div>
-                        </div>
+                        </Reveal>
                     </>
                 )}
             </div>

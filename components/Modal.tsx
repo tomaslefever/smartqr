@@ -1,6 +1,9 @@
 import React, { useEffect, ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { CloseIcon } from './Icons.tsx';
 import { iconButtonClass } from './ui.ts';
+import AnimatedContent from './reactbits/AnimatedContent.tsx';
+import FadeContent from './reactbits/FadeContent.tsx';
 
 interface ModalProps {
     title: string;
@@ -11,7 +14,8 @@ interface ModalProps {
     size?: string;
 }
 
-// Dialog shell for the panel: blurred backdrop, Escape and backdrop click close it
+// Dialog shell for the panel: blurred backdrop, Escape and backdrop click close it.
+// Rendered in <body> so the page's animated (transformed) wrappers cannot trap or offset it.
 const Modal: React.FC<ModalProps> = ({ title, description, onClose, children, size = 'max-w-lg' }) => {
     useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -24,10 +28,16 @@ const Modal: React.FC<ModalProps> = ({ title, description, onClose, children, si
         };
     }, [onClose]);
 
-    return (
+    return createPortal(
         <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-            <div className={`relative flex max-h-[92vh] w-full ${size} flex-col overflow-hidden rounded-t-2xl border border-line bg-surface shadow-pop sm:rounded-2xl`}>
+            <FadeContent trigger="mount" duration={0.2} className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+            <AnimatedContent
+                trigger="mount"
+                distance={24}
+                scale={0.97}
+                duration={0.35}
+                className={`relative flex max-h-[92vh] w-full ${size} flex-col overflow-hidden rounded-t-2xl border border-line bg-surface shadow-pop sm:rounded-2xl`}
+            >
                 <div className="flex items-start justify-between gap-4 border-b border-line px-6 py-4">
                     <div>
                         <h2 id="modal-title" className="text-base font-semibold text-fg">{title}</h2>
@@ -38,8 +48,9 @@ const Modal: React.FC<ModalProps> = ({ title, description, onClose, children, si
                     </button>
                 </div>
                 {children}
-            </div>
-        </div>
+            </AnimatedContent>
+        </div>,
+        document.body,
     );
 };
 

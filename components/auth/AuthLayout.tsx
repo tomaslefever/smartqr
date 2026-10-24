@@ -4,6 +4,8 @@ import { useAuth } from '../../context/AuthContext.tsx';
 import { Logo } from '../AppShell.tsx';
 import ColorModeToggle from '../ColorModeToggle.tsx';
 import { cardClass } from '../ui.ts';
+import { Reveal, usePanelColors } from '../effects.tsx';
+import Aurora from '../reactbits/Aurora.tsx';
 
 export const FullScreenLoader: React.FC = () => (
     <div className="flex min-h-screen items-center justify-center bg-canvas">
@@ -13,6 +15,7 @@ export const FullScreenLoader: React.FC = () => (
 
 const AuthLayout: React.FC = () => {
     const { user, loading } = useAuth();
+    const { mode, primary } = usePanelColors();
 
     if (loading) {
         return <FullScreenLoader />;
@@ -23,15 +26,26 @@ const AuthLayout: React.FC = () => {
     }
 
     return (
-        <div className="relative flex min-h-screen flex-col items-center justify-center bg-canvas px-4 py-12">
+        <div className="relative isolate flex min-h-screen flex-col items-center justify-center overflow-hidden bg-canvas px-4 py-12">
+            {/* Decorative: brand-colored aurora along the top of the page */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[28rem]">
+                <Aurora
+                    colorStops={mode === 'dark' ? ['#1F3A2A', primary, '#2F5A3E'] : ['#CFE3D5', primary, '#9CC7AA']}
+                    lightMode={mode === 'light'}
+                    amplitude={0.8}
+                    blend={0.6}
+                    speed={0.6}
+                    opacity={mode === 'dark' ? 0.7 : 0.45}
+                />
+            </div>
             <ColorModeToggle className="absolute right-4 top-4" />
-            <div className="w-full max-w-sm">
+            <Reveal distance={24} duration={0.6} className="w-full max-w-sm">
                 <div className="mb-8 flex justify-center"><Logo /></div>
                 <div className={`${cardClass} p-6 sm:p-8`}>
                     <Outlet />
                 </div>
                 <p className="mt-6 text-center text-xs text-fg-subtle">Tu carta digital con código QR.</p>
-            </div>
+            </Reveal>
         </div>
     );
 };

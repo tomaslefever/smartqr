@@ -10,6 +10,7 @@ import Switch from './Switch.tsx';
 import { PageHeader } from './AppShell.tsx';
 import { EditIcon, DeleteIcon, PlusIcon, SearchIcon, PackageIcon, UploadIcon, GripIcon } from './Icons.tsx';
 import { buttonClass, cardClass, iconButtonClass, inputClass } from './ui.ts';
+import { Reveal } from './effects.tsx';
 
 export const formatPrice = (value: number) => `$${Math.round(value).toLocaleString('es-CL')}`;
 
@@ -388,7 +389,7 @@ const ProductsPage: React.FC = () => {
                 }
             />
 
-            <section className={`${cardClass} min-w-0 overflow-hidden`}>
+            <Reveal delay={0.1} className={`${cardClass} min-w-0 overflow-hidden`}>
                 <div className="flex flex-col gap-3 border-b border-line p-4 md:flex-row md:items-center">
                     <div className="relative flex-1">
                         <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center [&_svg]:h-4 [&_svg]:w-4 [&_svg]:text-fg-subtle"><SearchIcon /></span>
@@ -460,7 +461,7 @@ const ProductsPage: React.FC = () => {
                         <p className="flex items-center gap-1">Arrastra <span className="[&_svg]:h-3.5 [&_svg]:w-3.5"><GripIcon /></span> para cambiar el orden en tu carta.</p>
                     </div>
                 )}
-            </section>
+            </Reveal>
 
             {isProductModalOpen && (
                 <ProductModal

@@ -6,6 +6,8 @@ import Modal, { modalBodyClass, modalFooterClass } from './Modal.tsx';
 import QRCodeComponent, { QR_OPTIONS } from './QRCode.tsx';
 import { CheckIcon, CopyIcon, DownloadIcon, PrinterIcon } from './Icons.tsx';
 import { buttonClass, iconButtonClass } from './ui.ts';
+import { usePanelColors } from './effects.tsx';
+import GlareHover from './reactbits/GlareHover.tsx';
 
 export const getStoreUrl = (userId: string | undefined) =>
     `${window.location.origin}${window.location.pathname}#/store/${userId}`;
@@ -46,6 +48,7 @@ export const printQR = (dataUrl: string, businessName: string) => {
 
 const StoreQRModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const { user } = useAuth();
+    const { primary } = usePanelColors();
     const [businessName, setBusinessName] = useState('');
     const [copied, setCopied] = useState(false);
     const storeUrl = getStoreUrl(user?.id);
@@ -89,9 +92,10 @@ const StoreQRModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         <Modal title="Código QR de la tienda" description="Escanéalo para abrir tu carta pública." onClose={onClose} size="max-w-sm">
             <div className={modalBodyClass}>
                 <div className="flex justify-center">
-                    <div className="rounded-xl border border-line bg-white p-3">
+                    {/* Sweeps once when the dialog opens, then on hover */}
+                    <GlareHover background="#FFFFFF" borderColor="rgb(var(--line))" borderRadius="0.75rem" glareColor={primary} glareOpacity={0.35} intro className="p-3">
                         <QRCodeComponent url={storeUrl} size={220} />
-                    </div>
+                    </GlareHover>
                 </div>
                 <div className="mt-5 flex items-center gap-2 rounded-lg border border-line bg-muted/50 py-1 pl-3 pr-1">
                     <a href={storeUrl} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 truncate text-xs text-fg-muted hover:text-fg" title={storeUrl}>

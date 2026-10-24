@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.tsx';
 import { GoogleIcon } from '../Icons.tsx';
 import { buttonClass, errorBoxClass, inputClass, labelClass } from '../ui.ts';
+import BlurText from '../reactbits/BlurText.tsx';
 
 const Login: React.FC = () => {
     const [email, setEmail] = useState('');
@@ -34,7 +35,9 @@ const Login: React.FC = () => {
 
     return (
         <div>
-            <h2 className="text-xl font-semibold tracking-tight text-fg text-center">Iniciar sesión</h2>
+            <h2 className="text-xl font-semibold tracking-tight text-fg">
+                <BlurText text="Iniciar sesión" delay={80} distance={10} trigger="load" className="justify-center" />
+            </h2>
             <p className="text-center text-sm text-fg-muted mt-1.5 mb-6">¡Bienvenido de nuevo!</p>
             
             {error && <p className={`${errorBoxClass} mb-4`}>{error}</p>}

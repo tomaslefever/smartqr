@@ -11,6 +11,9 @@ import { getStoreUrl, printQR, toPrintableDataUrl } from './StoreQRModal.tsx';
 import { STATUS_FILTERS, isActive } from './ProductsPage.tsx';
 import { ArrowRightIcon, CheckIcon, ColorSwatchIcon, CopyIcon, DownloadIcon, ExternalLinkIcon, PlusIcon, PrinterIcon, QrCodeIcon, TagIcon, ViewGridIcon } from './Icons.tsx';
 import { buttonClass, cardClass, iconButtonClass } from './ui.ts';
+import { Reveal, SpotlightPanel, usePanelColors } from './effects.tsx';
+import CountUp from './reactbits/CountUp.tsx';
+import GlareHover from './reactbits/GlareHover.tsx';
 
 // Recharts sets colors as SVG attributes, where CSS variables do not resolve, so they are picked per mode
 const CHART_COLORS = {
@@ -20,15 +23,23 @@ const CHART_COLORS = {
 
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
-const StatCard: React.FC<{ label: string; value: string; hint?: string }> = ({ label, value, hint }) => (
-    <div className={`${cardClass} p-5`}>
+// The number counts up once the data has loaded; until then it shows a dash
+const StatCard: React.FC<{ label: string; value: number | null; suffix?: string; hint?: string }> = ({ label, value, suffix, hint }) => (
+    <SpotlightPanel className="!p-5">
         <p className="text-sm text-fg-muted">{label}</p>
-        <p className="mt-2 text-2xl font-semibold tracking-tight text-fg tabular-nums">{value}</p>
+        <p className="mt-2 text-2xl font-semibold tracking-tight text-fg tabular-nums">
+            {value === null ? '—' : <CountUp to={value} separator="." suffix={suffix} duration={1.2} trigger="load" />}
+        </p>
         {hint && <p className="mt-1 text-xs text-fg-subtle">{hint}</p>}
-    </div>
+    </SpotlightPanel>
 );
 
-const shortcutClass = `${cardClass} group flex items-center gap-4 p-4 text-left transition-colors hover:border-control hover:bg-muted/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40`;
+// Fills its SpotlightPanel, so the whole card is the link
+const shortcutClass = 'group flex h-full items-center gap-4 rounded-xl p-4 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40';
+
+const Shortcut: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+    <SpotlightPanel className="!p-0">{children}</SpotlightPanel>
+);
 
 const ShortcutContent: React.FC<{ icon: React.ReactNode; title: string; detail: string; primary?: boolean }> = ({ icon, title, detail, primary }) => (
     <>
@@ -46,6 +57,7 @@ const HomePage: React.FC = () => {
     const { openQR } = useShell();
     const { resolved } = useColorMode();
     const chartColors = CHART_COLORS[resolved];
+    const { primary } = usePanelColors();
     const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [businessName, setBusinessName] = useState('');
@@ -139,7 +151,7 @@ const HomePage: React.FC = () => {
         }
     };
 
-    const value = (n: number) => (loading ? '—' : n.toLocaleString('es-CL'));
+    const value = (n: number) => (loading ? null : n);
 
     return (
         <>
@@ -148,35 +160,47 @@ const HomePage: React.FC = () => {
                 description="El resumen de tu carta y accesos directos."
             />
 
-            <div className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <Link to="/productos?nuevo=1" className={shortcutClass}>
-                    <ShortcutContent primary icon={<PlusIcon />} title="Añadir producto" detail="Suma algo nuevo a tu carta" />
-                </Link>
-                <Link to="/productos" className={shortcutClass}>
-                    <ShortcutContent icon={<ViewGridIcon />} title="Productos" detail={loading ? 'Edita y ordena tu carta' : plural(stats.total, 'producto', 'productos')} />
-                </Link>
-                <Link to="/categorias" className={shortcutClass}>
-                    <ShortcutContent icon={<TagIcon />} title="Categorías" detail={loading ? 'Agrupa tus productos' : categories.length ? plural(categories.length, 'categoría', 'categorías') : 'Crea tu primera categoría'} />
-                </Link>
-                <Link to="/estilo" className={shortcutClass}>
-                    <ShortcutContent icon={<ColorSwatchIcon />} title="Estilo de la carta" detail={loading ? 'Colores y fondo' : `Tema: ${themeName}`} />
-                </Link>
-                <button type="button" onClick={openQR} className={shortcutClass}>
-                    <ShortcutContent icon={<QrCodeIcon />} title="Código QR" detail="Descárgalo o imprímelo" />
-                </button>
-                <a href={storeUrl} target="_blank" rel="noopener noreferrer" className={shortcutClass}>
-                    <ShortcutContent icon={<ExternalLinkIcon />} title="Ver tienda" detail="Tu carta como la ven tus clientes" />
-                </a>
-            </div>
+            <Reveal stagger={0.05} delay={0.1} className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <Shortcut>
+                    <Link to="/productos?nuevo=1" className={shortcutClass}>
+                        <ShortcutContent primary icon={<PlusIcon />} title="Añadir producto" detail="Suma algo nuevo a tu carta" />
+                    </Link>
+                </Shortcut>
+                <Shortcut>
+                    <Link to="/productos" className={shortcutClass}>
+                        <ShortcutContent icon={<ViewGridIcon />} title="Productos" detail={loading ? 'Edita y ordena tu carta' : plural(stats.total, 'producto', 'productos')} />
+                    </Link>
+                </Shortcut>
+                <Shortcut>
+                    <Link to="/categorias" className={shortcutClass}>
+                        <ShortcutContent icon={<TagIcon />} title="Categorías" detail={loading ? 'Agrupa tus productos' : categories.length ? plural(categories.length, 'categoría', 'categorías') : 'Crea tu primera categoría'} />
+                    </Link>
+                </Shortcut>
+                <Shortcut>
+                    <Link to="/estilo" className={shortcutClass}>
+                        <ShortcutContent icon={<ColorSwatchIcon />} title="Estilo de la carta" detail={loading ? 'Colores y fondo' : `Tema: ${themeName}`} />
+                    </Link>
+                </Shortcut>
+                <Shortcut>
+                    <button type="button" onClick={openQR} className={`${shortcutClass} w-full`}>
+                        <ShortcutContent icon={<QrCodeIcon />} title="Código QR" detail="Descárgalo o imprímelo" />
+                    </button>
+                </Shortcut>
+                <Shortcut>
+                    <a href={storeUrl} target="_blank" rel="noopener noreferrer" className={shortcutClass}>
+                        <ShortcutContent icon={<ExternalLinkIcon />} title="Ver tienda" detail="Tu carta como la ven tus clientes" />
+                    </a>
+                </Shortcut>
+            </Reveal>
 
-            <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <Reveal stagger={0.06} delay={0.2} className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
                 <StatCard label="Productos en la carta" value={value(stats.visible)} hint={stats.inactive > 0 ? `${plural(stats.inactive, 'desactivado', 'desactivados')}` : 'Todos activos'} />
                 <StatCard label="Categorías" value={value(categories.length)} />
                 <StatCard label="No disponibles" value={value(stats.unavailable)} hint="Marcados como agotados" />
-                <StatCard label="Con foto" value={loading ? '—' : `${stats.withPhoto} de ${stats.total}`} />
-            </div>
+                <StatCard label="Con foto" value={value(stats.withPhoto)} suffix={` de ${stats.total}`} />
+            </Reveal>
 
-            <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+            <Reveal stagger={0.08} delay={0.3} className="grid grid-cols-1 gap-6 xl:grid-cols-3">
                 <div className="min-w-0 space-y-6 xl:col-span-2">
                     <section className={`${cardClass} p-5`}>
                         <h2 className="text-sm font-semibold text-fg">Para mejorar tu carta</h2>
@@ -231,9 +255,11 @@ const HomePage: React.FC = () => {
                     <h2 className="text-sm font-semibold text-fg">Código QR de tu carta</h2>
                     <p className="mt-1 text-sm text-fg-muted">Tus clientes lo escanean para abrirla.</p>
                     <div className="mt-5 flex justify-center">
-                        <button type="button" onClick={openQR} className="rounded-xl border border-line bg-white p-2 transition-shadow hover:shadow-pop" title="Ver más grande" aria-label="Ver el código QR más grande">
-                            <QRCodeComponent url={storeUrl} />
-                        </button>
+                        <GlareHover background="#FFFFFF" borderColor="rgb(var(--line))" borderRadius="0.75rem" glareColor={primary} glareOpacity={0.35} className="transition-shadow hover:shadow-pop">
+                            <button type="button" onClick={openQR} className="block p-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40" title="Ver más grande" aria-label="Ver el código QR más grande">
+                                <QRCodeComponent url={storeUrl} />
+                            </button>
+                        </GlareHover>
                     </div>
                     <div className="mt-5 flex items-center gap-2 rounded-lg border border-line bg-muted/50 py-1 pl-3 pr-1">
                         <a href={storeUrl} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 truncate text-xs text-fg-muted hover:text-fg" title={storeUrl}>
@@ -248,7 +274,7 @@ const HomePage: React.FC = () => {
                         <button onClick={handlePrint} className={buttonClass('secondary')}><PrinterIcon />Imprimir</button>
                     </div>
                 </section>
-            </div>
+            </Reveal>
         </>
     );
 };

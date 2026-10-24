@@ -6,18 +6,25 @@ import StoreQRModal from './StoreQRModal.tsx';
 import ColorModeToggle from './ColorModeToggle.tsx';
 import { CloseIcon, ColorSwatchIcon, ExternalLinkIcon, HomeIcon, LogoutIcon, MenuIcon, QrCodeIcon, QrMarkIcon, SettingsIcon, TagIcon, ViewGridIcon } from './Icons.tsx';
 import { iconButtonClass } from './ui.ts';
+import { Reveal, usePanelColors } from './effects.tsx';
+import BlurText from './reactbits/BlurText.tsx';
+import ClickSpark from './reactbits/ClickSpark.tsx';
+import ShinyText from './reactbits/ShinyText.tsx';
 
 const navItemClass = (active: boolean) =>
     `flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${active ? 'bg-muted text-fg' : 'text-fg-muted hover:bg-muted/60 hover:text-fg'}`;
 
-export const Logo: React.FC = () => (
-    <div className="flex items-center gap-2.5">
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-fg">
-            <QrMarkIcon />
-        </span>
-        <span className="text-[15px] font-semibold tracking-tight text-fg">SmartQR</span>
-    </div>
-);
+export const Logo: React.FC = () => {
+    const { fg, primary } = usePanelColors();
+    return (
+        <div className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-fg">
+                <QrMarkIcon />
+            </span>
+            <ShinyText text="SmartQR" color={fg} shineColor={primary} speed={3} delay={4} className="text-[15px] font-semibold tracking-tight" />
+        </div>
+    );
+};
 
 const SidebarContent: React.FC<{ onOpenSettings: () => void; onOpenQR: () => void }> = ({ onOpenSettings, onOpenQR }) => {
     const { user, signOut } = useAuth();
@@ -87,6 +94,7 @@ const AppShell: React.FC = () => {
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [qrOpen, setQrOpen] = useState(false);
     const location = useLocation();
+    const { primary } = usePanelColors();
 
     useEffect(() => setMobileOpen(false), [location.pathname]);
 
@@ -126,9 +134,12 @@ const AppShell: React.FC = () => {
             )}
 
             <main className="lg:pl-64">
-                <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-10 lg:py-10">
-                    <Outlet context={{ openQR, openSettings } satisfies ShellContext} />
-                </div>
+                <ClickSpark sparkColor={primary} sparkSize={8} sparkRadius={18} sparkCount={8} duration={450} className="min-h-screen">
+                    {/* Keyed by path so each page plays its entrance when you navigate to it */}
+                    <Reveal key={location.pathname} className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-10 lg:py-10">
+                        <Outlet context={{ openQR, openSettings } satisfies ShellContext} />
+                    </Reveal>
+                </ClickSpark>
             </main>
 
             {settingsOpen && user && <SettingsModal user={user} onClose={() => setSettingsOpen(false)} />}
@@ -141,7 +152,9 @@ const AppShell: React.FC = () => {
 export const PageHeader: React.FC<{ title: string; description?: string; actions?: React.ReactNode }> = ({ title, description, actions }) => (
     <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-fg">{title}</h1>
+            <h1 key={title} className="text-2xl font-semibold tracking-tight text-fg">
+                <BlurText text={title} delay={60} stepDuration={0.3} distance={12} blur={8} trigger="load" />
+            </h1>
             {description && <p className="mt-1 text-sm text-fg-muted">{description}</p>}
         </div>
         {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
