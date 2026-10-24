@@ -54,15 +54,17 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                        <CloseIcon />
                     </button>
                     
-                    <p className="text-sm text-[color:var(--store-accent)] font-semibold mb-2">{product.category}</p>
+                    {product.category && <p className="text-sm text-[color:var(--store-accent)] font-semibold mb-2">{product.category}</p>}
                     <h2 id="product-title" className="text-3xl lg:text-4xl font-bold text-[color:var(--store-text)] mb-4 pr-10">{product.name}</h2>
                     
-                    <p className="text-[color:var(--store-muted)] mb-6 flex-grow">{product.description}</p>
-                    
-                    <div className="mt-auto flex justify-between items-center pt-4 border-t border-[color:var(--store-border)]">
-                        <p className="text-3xl font-bold text-[color:var(--store-accent)]">${product.price.toLocaleString('es-CL')}{product.unit === 'kg' ? <span className="text-xl font-normal text-[color:var(--store-muted)]">/kg</span> : ''}</p>
-                        {product.out_of_stock && <p className="text-md font-medium text-[color:var(--store-muted)] bg-[color:var(--store-subtle)] px-3 py-1 rounded-full">No disponible</p>}
-                    </div>
+                    {product.description && <p className="text-[color:var(--store-muted)] mb-6 flex-grow whitespace-pre-line">{product.description}</p>}
+
+                    {(product.price > 0 || product.out_of_stock) && (
+                        <div className="mt-auto flex justify-between items-center gap-4 pt-4 border-t border-[color:var(--store-border)]">
+                            {product.price > 0 && <p className="text-3xl font-bold text-[color:var(--store-accent)]">${product.price.toLocaleString('es-CL')}{product.unit === 'kg' ? <span className="text-xl font-normal text-[color:var(--store-muted)]">/kg</span> : ''}</p>}
+                            {product.out_of_stock && <p className="text-md font-medium text-[color:var(--store-muted)] bg-[color:var(--store-subtle)] px-3 py-1 rounded-full">No disponible</p>}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

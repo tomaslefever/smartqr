@@ -40,12 +40,14 @@ const ProductRow: React.FC<{ product: Product; onEdit: (product: Product) => voi
                 )}
                 <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-fg">{product.name}</p>
-                    <p className="truncate text-xs text-fg-subtle">{product.category}</p>
+                    {product.category && <p className="truncate text-xs text-fg-subtle">{product.category}</p>}
                 </div>
             </div>
         </td>
         <td className="px-3 py-3 text-sm text-fg tabular-nums whitespace-nowrap">
-            {formatPrice(product.price)}{product.unit === 'kg' && <span className="text-fg-subtle">/kg</span>}
+            {product.price > 0
+                ? <>{formatPrice(product.price)}{product.unit === 'kg' && <span className="text-fg-subtle">/kg</span>}</>
+                : <span className="text-fg-subtle" title="Sin precio">—</span>}
         </td>
         <td className="px-3 py-3 text-sm text-fg-muted tabular-nums">
             {product.track_stock ? product.stock : <span className="text-fg-subtle" title="Sin control de stock">—</span>}
@@ -185,7 +187,8 @@ const Dashboard: React.FC = () => {
     const categoryData = useMemo(() => {
         const counts: { [key: string]: number } = {};
         products.forEach(p => {
-            counts[p.category] = (counts[p.category] || 0) + 1;
+            const category = p.category || 'Sin categoría';
+            counts[category] = (counts[category] || 0) + 1;
         });
         return Object.entries(counts).map(([name, value]) => ({ name, value }));
     }, [products]);

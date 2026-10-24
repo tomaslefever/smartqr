@@ -6,8 +6,9 @@ import { SearchIcon, PhoneIcon, MailIcon, LocationMarkerIcon } from './Icons.tsx
 import ProductDetailModal from './ProductDetailModal.tsx';
 import { normalizeThemeStyle, themeStyleVars } from './storeTheme.ts';
 
-// Horizontal card: text on the left and a square image on the right, to fit more products per screen.
-// Products without an image (or whose image fails to load) show only the text, using the full width.
+// Horizontal card: name, description and price on the left and a square image on the right.
+// Only the name is always there: description, price (when above 0) and image show only if the product
+// has them, and without an image (or if it fails to load) the text uses the full width.
 export const ProductCard: React.FC<{ product: Product; onClick: () => void; }> = ({ product, onClick }) => {
     const [imageFailed, setImageFailed] = useState(false);
     const showImage = Boolean(product.image_url) && !imageFailed;
@@ -15,13 +16,14 @@ export const ProductCard: React.FC<{ product: Product; onClick: () => void; }> =
     return (
     <button onClick={onClick} className={`group flex w-full items-stretch gap-4 overflow-hidden rounded-xl bg-[color:var(--store-card)] p-4 text-left shadow-md transition duration-300 hover:-translate-y-0.5 hover:shadow-lg ${product.out_of_stock ? 'opacity-60' : ''}`}>
         <div className="flex min-w-0 flex-1 flex-col">
-            <p className="text-xs font-semibold text-[color:var(--store-accent)]">{product.category}</p>
-            <h3 className="mt-0.5 text-base font-bold leading-snug text-[color:var(--store-text)] line-clamp-2 sm:text-lg">{product.name}</h3>
+            <h3 className="text-base font-bold leading-snug text-[color:var(--store-text)] line-clamp-2 sm:text-lg">{product.name}</h3>
             {product.description && <p className="mt-1 text-sm text-[color:var(--store-muted)] line-clamp-2">{product.description}</p>}
-            <div className="mt-auto flex flex-wrap items-center gap-2 pt-3">
-                <p className="text-lg font-bold text-[color:var(--store-accent)]">${product.price.toLocaleString('es-CL')}{product.unit === 'kg' ? <span className="text-sm font-normal text-[color:var(--store-muted)]">/kg</span> : ''}</p>
-                {product.out_of_stock && <p className="text-xs font-medium text-[color:var(--store-muted)] bg-[color:var(--store-subtle)] px-2 py-0.5 rounded-full">No disponible</p>}
-            </div>
+            {(product.price > 0 || product.out_of_stock) && (
+                <div className="mt-auto flex flex-wrap items-center gap-2 pt-3">
+                    {product.price > 0 && <p className="text-lg font-bold text-[color:var(--store-accent)]">${product.price.toLocaleString('es-CL')}{product.unit === 'kg' ? <span className="text-sm font-normal text-[color:var(--store-muted)]">/kg</span> : ''}</p>}
+                    {product.out_of_stock && <p className="text-xs font-medium text-[color:var(--store-muted)] bg-[color:var(--store-subtle)] px-2 py-0.5 rounded-full">No disponible</p>}
+                </div>
+            )}
         </div>
         {showImage && (
             <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg sm:h-28 sm:w-28">
@@ -97,7 +99,8 @@ const Store: React.FC = () => {
             for (const category of categoriesInView) {
                 const section = sectionRefs.current[category];
                 if (section && section.getBoundingClientRect().top <= offset) {
-                    activeCategory = category;
+                    // The uncategorized group has no chip of its own
+                    activeCategory = category || 'Todos';
                     break;
                 }
             }
@@ -129,14 +132,15 @@ const Store: React.FC = () => {
         }
     }, [selectedCategory]);
 
+    // Category is optional: products without one have no chip and are listed first, without a title
     const categories = useMemo(() => {
-        const allCategories = products.map(p => p.category);
+        const allCategories = products.map(p => p.category).filter(Boolean);
         return ['Todos', ...Array.from(new Set(allCategories))];
     }, [products]);
 
     const productsByCategory = useMemo(() => {
         const grouped: { [key: string]: Product[] } = {};
-        const categoriesWithProducts = categories.filter(c => c !== 'Todos');
+        const categoriesWithProducts = ['', ...categories.filter(c => c !== 'Todos')];
 
         categoriesWithProducts.forEach(category => {
             const filtered = products
@@ -233,7 +237,7 @@ const Store: React.FC = () => {
                                 // Fix: The ref callback must not return a value. Switched to a block body to ensure a void return type.
                                 ref={el => { sectionRefs.current[category] = el; }}
                             >
-                                <h2 className="text-2xl font-bold text-[color:var(--store-text)] mb-4 border-b-2 border-[color:var(--store-accent-soft)] pb-2">{category}</h2>
+                                {category && <h2 className="text-2xl font-bold text-[color:var(--store-text)] mb-4 border-b-2 border-[color:var(--store-accent-soft)] pb-2">{category}</h2>}
                                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                                     {productsByCategory[category].map(product => (
                                         <ProductCard key={product.id} product={product} onClick={() => setSelectedProduct(product)} />

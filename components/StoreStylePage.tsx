@@ -79,7 +79,7 @@ const ThemeOption: React.FC<{ name: string; style: ThemeStyle; selected: boolean
 );
 
 const StorePreview: React.FC<{ style: ThemeStyle; businessName: string; products: Product[] }> = ({ style, businessName, products }) => {
-    const categories = Array.from(new Set(products.map(p => p.category))).slice(0, 3);
+    const categories = Array.from(new Set(products.map(p => p.category).filter(Boolean))).slice(0, 3);
 
     return (
         <div className="rounded-xl overflow-hidden border border-line shadow-soft text-[color:var(--store-text)]" style={themeStyleVars(style)}>
@@ -100,7 +100,7 @@ const StorePreview: React.FC<{ style: ThemeStyle; businessName: string; products
                         </span>
                     ))}
                 </div>
-                <h2 className="text-2xl font-bold border-b-2 border-[color:var(--store-accent-soft)] pb-2">{products[0]?.category}</h2>
+                <h2 className="text-2xl font-bold border-b-2 border-[color:var(--store-accent-soft)] pb-2">{categories[0] ?? 'Productos'}</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     {products.slice(0, 2).map(product => (
                         <ProductCard key={product.id} product={product} onClick={() => {}} />

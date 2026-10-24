@@ -36,7 +36,8 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, categories, onClos
             setFormData({
                 name: product.name,
                 description: product.description,
-                price: product.price.toString(),
+                // 0 means "no price", shown as an empty field
+                price: product.price ? product.price.toString() : '',
                 category: product.category,
                 stock: product.stock.toString(),
                 unit: product.unit || 'unit',
@@ -52,7 +53,7 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, categories, onClos
             }
             setImagePreview(product.image_url);
         } else {
-            setFormData(prev => ({ ...prev, category: categories[0] || '', unit: 'unit' }));
+            setFormData(prev => ({ ...prev, category: '', unit: 'unit' }));
         }
     }, [product, categories]);
 
@@ -84,25 +85,28 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, categories, onClos
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
+        // Only the name is required: an empty category, description or price is saved as '' / 0
         const finalCategory = (isAddingNewCategory ? newCategory.trim() : formData.category);
+        const price = parseFloat(formData.price);
+        const stock = parseInt(formData.stock, 10);
 
-        if (!finalCategory) {
-            setError('Selecciona o añade una categoría.');
-            return;
-        }
-        
         const productData = {
-            name: formData.name,
-            description: formData.description,
-            price: parseFloat(formData.price),
+            name: formData.name.trim(),
+            description: formData.description.trim(),
+            price: Number.isFinite(price) ? price : 0,
             category: finalCategory,
             // Without stock control the previous value is kept, so turning it back on restores it
-            stock: trackStock ? parseInt(formData.stock, 10) : (product?.stock ?? 0),
+            stock: trackStock ? (Number.isFinite(stock) ? stock : 0) : (product?.stock ?? 0),
             track_stock: trackStock,
             out_of_stock: outOfStock,
             unit: formData.unit,
             image_url: product?.image_url ?? '',
         };
+
+        if (!productData.name) {
+            setError('El nombre es obligatorio.');
+            return;
+        }
         
         setSaving(true);
         setError(null);
@@ -166,14 +170,14 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, categories, onClos
                             <input type="text" name="name" id="name" value={formData.name} onChange={handleChange} required className={`${inputClass} mt-1.5`}/>
                         </div>
                         <div>
-                            <label htmlFor="category-select" className={labelClass}>Categoría</label>
+                            <label htmlFor="category-select" className={labelClass}>Categoría <span className="font-normal text-fg-subtle">(opcional)</span></label>
                             <select
                                 id="category-select"
                                 value={isAddingNewCategory ? '--new--' : formData.category}
                                 onChange={handleCategoryChange}
                                 className={`${inputClass} mt-1.5`}
                             >
-                                <option value="" disabled>Selecciona una categoría</option>
+                                <option value="">Sin categoría</option>
                                 {categories.map(cat => (
                                     <option key={cat} value={cat}>{cat}</option>
                                 ))}
@@ -188,17 +192,16 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, categories, onClos
                                     value={newCategory}
                                     onChange={(e) => setNewCategory(e.target.value)}
                                     placeholder="Nombre de la nueva categoría"
-                                    required
                                     className={`${inputClass} mt-2`}
                                 />
                             )}
                         </div>
                         <div className="grid grid-cols-3 gap-3">
                             <div className="col-span-2">
-                                <label htmlFor="price" className={labelClass}>Precio</label>
+                                <label htmlFor="price" className={labelClass}>Precio <span className="font-normal text-fg-subtle">(opcional)</span></label>
                                 <div className="relative mt-1.5">
                                     <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-fg-subtle">$</span>
-                                    <input type="number" name="price" id="price" value={formData.price} onChange={handleChange} required step="1" min="0" className={`${inputClass} pl-7 tabular-nums`}/>
+                                    <input type="number" name="price" id="price" value={formData.price} onChange={handleChange} step="1" min="0" placeholder="Sin precio" className={`${inputClass} pl-7 tabular-nums`}/>
                                 </div>
                             </div>
                             <div>
@@ -212,8 +215,8 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, categories, onClos
                     </div>
 
                     <div className="md:col-span-2">
-                        <label htmlFor="description" className={labelClass}>Descripción</label>
-                        <textarea id="description" name="description" rows={3} value={formData.description} onChange={handleChange} required className={`${textareaClass} mt-1.5`}></textarea>
+                        <label htmlFor="description" className={labelClass}>Descripción <span className="font-normal text-fg-subtle">(opcional)</span></label>
+                        <textarea id="description" name="description" rows={3} value={formData.description} onChange={handleChange} className={`${textareaClass} mt-1.5`}></textarea>
                     </div>
 
                     <div className="divide-y divide-line rounded-xl border border-line md:col-span-2">
@@ -226,7 +229,7 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, categories, onClos
                                 <Switch id="track-stock" checked={trackStock} onChange={setTrackStock} />
                             </div>
                             {trackStock && (
-                                <input type="number" name="stock" id="stock" aria-label="Stock" value={formData.stock} onChange={handleChange} required min="0" placeholder="Cantidad disponible" className={`${inputClass} mt-3 tabular-nums`}/>
+                                <input type="number" name="stock" id="stock" aria-label="Stock" value={formData.stock} onChange={handleChange} min="0" placeholder="Cantidad disponible" className={`${inputClass} mt-3 tabular-nums`}/>
                             )}
                         </div>
                         <div className="flex items-center justify-between gap-4 p-4">
