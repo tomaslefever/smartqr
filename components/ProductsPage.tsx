@@ -27,28 +27,59 @@ export const STATUS_FILTERS: Record<string, { label: string; matches: (p: Produc
 
 const NO_CATEGORY = 'none';
 
-// Clicking the empty thumbnail opens the file picker and uploads the picture without going through the edit modal
-const ImagePlaceholderButton: React.FC<{ product: Product; uploading: boolean; onUploadImage: (product: Product, file: File) => void; }> = ({ product, uploading, onUploadImage }) => (
-    <label
-        title={uploading ? 'Subiendo imagen...' : 'Subir imagen'}
-        className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-dashed border-control bg-muted/40 text-fg-subtle transition-colors focus-within:ring-2 focus-within:ring-primary/40 [&_svg]:h-5 [&_svg]:w-5 [&_svg]:text-current ${uploading ? 'cursor-wait' : 'cursor-pointer hover:border-primary hover:bg-primary/5 hover:text-primary'}`}
-    >
-        {uploading ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" /> : <UploadIcon />}
-        <input
-            type="file"
-            className="sr-only"
-            accept="image/png, image/jpeg, image/gif, image/webp"
-            disabled={uploading}
-            aria-label={`Subir imagen de ${product.name}`}
-            onChange={e => {
-                const file = e.target.files?.[0];
-                // Reset so picking the same file again after a failed upload still fires onChange
-                e.target.value = '';
-                if (file) onUploadImage(product, file);
-            }}
-        />
-    </label>
-);
+// Drags that carry files (from the computer), as opposed to dragging text or rows
+const isFileDrag = (e: React.DragEvent | DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes('Files');
+
+// The empty thumbnail uploads a picture without going through the edit modal: click it to pick a
+// file, or drop an image on it
+const ImagePlaceholderButton: React.FC<{ product: Product; uploading: boolean; onUploadImage: (product: Product, file: File) => void; }> = ({ product, uploading, onUploadImage }) => {
+    const [isOver, setIsOver] = useState(false);
+
+    const handleDragOver = (e: React.DragEvent) => {
+        if (!isFileDrag(e) || uploading) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+        setIsOver(true);
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        if (!isFileDrag(e)) return;
+        e.preventDefault();
+        setIsOver(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file && !uploading) onUploadImage(product, file);
+    };
+
+    return (
+        <label
+            title={uploading ? 'Subiendo imagen...' : 'Subir imagen (haz clic o arrastra una imagen aquí)'}
+            onDragOver={handleDragOver}
+            onDragEnter={handleDragOver}
+            onDragLeave={() => setIsOver(false)}
+            onDrop={handleDrop}
+            className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-dashed transition-colors focus-within:ring-2 focus-within:ring-primary/40 [&_svg]:h-5 [&_svg]:w-5 [&_svg]:text-current ${
+                isOver
+                    ? 'scale-110 border-primary bg-primary/10 text-primary ring-2 ring-primary/30'
+                    : `border-control bg-muted/40 text-fg-subtle ${uploading ? 'cursor-wait' : 'cursor-pointer hover:border-primary hover:bg-primary/5 hover:text-primary'}`
+            }`}
+        >
+            {uploading ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" /> : <UploadIcon />}
+            <input
+                type="file"
+                className="sr-only"
+                accept="image/png, image/jpeg, image/gif, image/webp"
+                disabled={uploading}
+                aria-label={`Subir imagen de ${product.name}`}
+                onChange={e => {
+                    const file = e.target.files?.[0];
+                    // Reset so picking the same file again after a failed upload still fires onChange
+                    e.target.value = '';
+                    if (file) onUploadImage(product, file);
+                }}
+            />
+        </label>
+    );
+};
 
 const Badge: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-fg-muted whitespace-nowrap">{children}</span>
@@ -180,6 +211,19 @@ const ProductsPage: React.FC = () => {
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    // A file dropped outside a thumbnail would make the browser open it and leave the panel
+    useEffect(() => {
+        const ignoreFileDrop = (e: DragEvent) => {
+            if (isFileDrag(e)) e.preventDefault();
+        };
+        window.addEventListener('dragover', ignoreFileDrop);
+        window.addEventListener('drop', ignoreFileDrop);
+        return () => {
+            window.removeEventListener('dragover', ignoreFileDrop);
+            window.removeEventListener('drop', ignoreFileDrop);
+        };
+    }, []);
 
     const handleOpenProductModal = (product: Product | null = null) => {
         setEditingProduct(product);
