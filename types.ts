@@ -11,6 +11,8 @@ export interface Product {
   track_stock: boolean;
   // Quick manual flag: the store shows the product as "No disponible"
   out_of_stock: boolean;
+  // When false the product stays in the panel but is hidden from the public store
+  active: boolean;
   created_at: string;
   unit: 'unit' | 'kg';
 }

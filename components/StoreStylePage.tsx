@@ -19,8 +19,8 @@ import {
 } from './storeTheme.ts';
 
 const SAMPLE_PRODUCTS: Product[] = [
-    { id: -1, name: 'Producto de ejemplo', description: 'Así se ve la descripción de un producto.', price: 2900, category: 'Categoría', image_url: supabaseService.getPlaceholderImageUrl(), stock: 0, created_at: '', unit: 'unit', track_stock: false, out_of_stock: false },
-    { id: -2, name: 'Otro producto', description: 'Este aparece como no disponible.', price: 3500, category: 'Categoría', image_url: supabaseService.getPlaceholderImageUrl(), stock: 0, created_at: '', unit: 'unit', track_stock: false, out_of_stock: true },
+    { id: -1, name: 'Producto de ejemplo', description: 'Así se ve la descripción de un producto.', price: 2900, category: 'Categoría', image_url: supabaseService.getPlaceholderImageUrl(), stock: 0, created_at: '', unit: 'unit', track_stock: false, out_of_stock: false, active: true },
+    { id: -2, name: 'Otro producto', description: 'Este aparece como no disponible.', price: 3500, category: 'Categoría', image_url: supabaseService.getPlaceholderImageUrl(), stock: 0, created_at: '', unit: 'unit', track_stock: false, out_of_stock: true, active: true },
 ];
 
 // Predefined themes shown before expanding the gallery

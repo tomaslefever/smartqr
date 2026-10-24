@@ -23,6 +23,7 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, categories, onClos
     });
     const [trackStock, setTrackStock] = useState(false);
     const [outOfStock, setOutOfStock] = useState(false);
+    const [active, setActive] = useState(true);
     const [newCategory, setNewCategory] = useState('');
     const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
     const [imageFile, setImageFile] = useState<File | null>(null);
@@ -43,6 +44,7 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, categories, onClos
             });
             setTrackStock(product.track_stock);
             setOutOfStock(product.out_of_stock);
+            setActive(product.active !== false);
             if (product.category && !categories.includes(product.category)) {
                  setIsAddingNewCategory(true);
                  setNewCategory(product.category);
@@ -100,6 +102,7 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, categories, onClos
             stock: trackStock ? parseInt(formData.stock, 10) : (product?.stock ?? 0),
             track_stock: trackStock,
             out_of_stock: outOfStock,
+            active,
             unit: formData.unit,
             image_url: product?.image_url ?? '',
         };
@@ -217,6 +220,13 @@ const ProductModal: React.FC<ProductModalProps> = ({ product, categories, onClos
                     </div>
 
                     <div className="divide-y divide-line rounded-xl border border-line md:col-span-2">
+                        <div className="flex items-center justify-between gap-4 p-4">
+                            <div>
+                                <label htmlFor="active" className={labelClass}>Activo</label>
+                                <p className={hintClass}>Si lo desactivas, deja de aparecer en la tienda.</p>
+                            </div>
+                            <Switch id="active" checked={active} onChange={setActive} />
+                        </div>
                         <div className="p-4">
                             <div className="flex items-center justify-between gap-4">
                                 <div>

@@ -5,11 +5,9 @@ import { useAuth } from '../context/AuthContext.tsx';
 import { useColorMode } from '../context/ColorModeContext.tsx';
 import ProductModal from './ProductModal.tsx';
 import Switch from './Switch.tsx';
-import ThemePickerCard from './ThemePickerCard.tsx';
+import StoreQRModal from './StoreQRModal.tsx';
 import { PageHeader } from './AppShell.tsx';
-import QRCode from 'qrcode';
-import QRCodeComponent, { QR_OPTIONS } from './QRCode.tsx';
-import { EditIcon, DeleteIcon, PlusIcon, DownloadIcon, SearchIcon, CopyIcon, CheckIcon, PackageIcon, UploadIcon } from './Icons.tsx';
+import { EditIcon, DeleteIcon, PlusIcon, SearchIcon, PackageIcon, UploadIcon, QrCodeIcon } from './Icons.tsx';
 import { buttonClass, cardClass, iconButtonClass, inputClass } from './ui.ts';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -55,17 +53,23 @@ const ImagePlaceholderButton: React.FC<{ product: Product; uploading: boolean; o
     </label>
 );
 
-const ProductRow: React.FC<{ product: Product; uploading: boolean; onEdit: (product: Product) => void; onDelete: (id: number) => void; onToggleOutOfStock: (product: Product) => void; onUploadImage: (product: Product, file: File) => void; }> = ({ product, uploading, onEdit, onDelete, onToggleOutOfStock, onUploadImage }) => (
+// Rows from before supabase/products-active.sql have no `active` value and count as active
+const isActive = (product: Product) => product.active !== false;
+
+const ProductRow: React.FC<{ product: Product; uploading: boolean; onEdit: (product: Product) => void; onDelete: (id: number) => void; onToggleOutOfStock: (product: Product) => void; onToggleActive: (product: Product) => void; onUploadImage: (product: Product, file: File) => void; }> = ({ product, uploading, onEdit, onDelete, onToggleOutOfStock, onToggleActive, onUploadImage }) => (
     <tr className="group border-b border-line last:border-0 transition-colors hover:bg-muted/50">
         <td className="py-3 pl-5 pr-3">
-            <div className="flex items-center gap-3">
+            <div className={`flex items-center gap-3 transition-opacity ${isActive(product) ? '' : 'opacity-50'}`}>
                 {hasImage(product) ? (
                     <img src={product.image_url} alt="" className="h-10 w-10 flex-shrink-0 rounded-lg border border-line object-cover" />
                 ) : (
                     <ImagePlaceholderButton product={product} uploading={uploading} onUploadImage={onUploadImage} />
                 )}
                 <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-fg">{product.name}</p>
+                    <p className="truncate text-sm font-medium text-fg">
+                        {product.name}
+                        {!isActive(product) && <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-fg-muted">Oculto</span>}
+                    </p>
                     <p className="truncate text-xs text-fg-subtle">{product.category}</p>
                 </div>
             </div>
@@ -78,6 +82,9 @@ const ProductRow: React.FC<{ product: Product; uploading: boolean; onEdit: (prod
         </td>
         <td className="px-3 py-3">
             <Switch checked={product.out_of_stock} onChange={() => onToggleOutOfStock(product)} label={`Marcar ${product.name} sin stock`} />
+        </td>
+        <td className="px-3 py-3">
+            <Switch checked={isActive(product)} onChange={() => onToggleActive(product)} label={`${isActive(product) ? 'Desactivar' : 'Activar'} ${product.name}`} />
         </td>
         <td className="py-3 pl-3 pr-5">
             <div className="flex justify-end gap-1">
@@ -105,6 +112,7 @@ const SkeletonRows: React.FC = () => (
                 <td className="px-3 py-3"><div className="h-3 w-14 animate-pulse rounded bg-muted" /></td>
                 <td className="px-3 py-3"><div className="h-3 w-6 animate-pulse rounded bg-muted" /></td>
                 <td className="px-3 py-3"><div className="h-5 w-9 animate-pulse rounded-full bg-muted" /></td>
+                <td className="px-3 py-3"><div className="h-5 w-9 animate-pulse rounded-full bg-muted" /></td>
                 <td className="py-3 pl-3 pr-5" />
             </tr>
         ))}
@@ -119,7 +127,7 @@ const Dashboard: React.FC = () => {
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [search, setSearch] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('');
-    const [copied, setCopied] = useState(false);
+    const [qrOpen, setQrOpen] = useState(false);
     const [uploadingIds, setUploadingIds] = useState<Set<number>>(new Set());
     const { user } = useAuth();
     const { resolved } = useColorMode();
@@ -183,19 +191,22 @@ const Dashboard: React.FC = () => {
         }
     };
 
-    const handleToggleOutOfStock = async (product: Product) => {
-        const out_of_stock = !product.out_of_stock;
-        const setFlag = (value: boolean) =>
-            setProducts(prev => prev.map(p => p.id === product.id ? { ...p, out_of_stock: value } : p));
+    const updateFlag = async (product: Product, field: 'out_of_stock' | 'active', value: boolean) => {
+        const setFlag = (next: boolean) =>
+            setProducts(prev => prev.map(p => p.id === product.id ? { ...p, [field]: next } : p));
 
         // Update the row immediately and roll back if Supabase rejects the change
-        setFlag(out_of_stock);
-        const saved = await supabaseService.updateProduct(product.id, { out_of_stock });
+        setFlag(value);
+        const saved = await supabaseService.updateProduct(product.id, { [field]: value });
         if (!saved) {
-            setFlag(product.out_of_stock);
+            setFlag(!value);
             alert('No se pudo actualizar el producto. Inténtalo de nuevo.');
         }
     };
+
+    const handleToggleOutOfStock = (product: Product) => updateFlag(product, 'out_of_stock', !product.out_of_stock);
+
+    const handleToggleActive = (product: Product) => updateFlag(product, 'active', !isActive(product));
 
     const handleUploadImage = async (product: Product, file: File) => {
         if (!file.type.startsWith('image/')) {
@@ -227,6 +238,7 @@ const Dashboard: React.FC = () => {
         const stocked = products.filter(p => p.track_stock);
         return {
             totalProducts: products.length,
+            inactive: products.filter(p => !isActive(p)).length,
             unavailable: products.filter(p => p.out_of_stock).length,
             totalStock: stocked.reduce((sum, p) => sum + p.stock, 0),
             totalValue: stocked.reduce((sum, p) => sum + (p.price * p.stock), 0),
@@ -249,33 +261,6 @@ const Dashboard: React.FC = () => {
             (!term || p.name.toLowerCase().includes(term) || p.category.toLowerCase().includes(term)));
     }, [products, search, categoryFilter]);
 
-    const storeUrl = `${window.location.origin}${window.location.pathname}#/store/${user?.id}`;
-
-    const handleCopyUrl = async () => {
-        try {
-            await navigator.clipboard.writeText(storeUrl);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-        } catch (error) {
-            console.error('Error copying store URL:', error);
-        }
-    };
-
-    const handleDownloadQR = async () => {
-        try {
-            // margin 4 keeps the standard quiet zone so the printed code scans reliably
-            const dataUrl = await QRCode.toDataURL(storeUrl, { ...QR_OPTIONS, width: 1024, margin: 4 });
-            const link = document.createElement('a');
-            link.href = dataUrl;
-            link.download = 'smartqr-tienda.png';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        } catch (error) {
-            console.error('Error generating QR code for download:', error);
-        }
-    };
-
     const stockHint = stats.stockedCount === 0 ? 'Ningún producto maneja stock' : `${stats.stockedCount} con control de stock`;
 
     return (
@@ -284,22 +269,28 @@ const Dashboard: React.FC = () => {
                 title="Productos"
                 description="Administra la carta de tu negocio."
                 actions={
-                    <button onClick={() => handleOpenProductModal()} className={buttonClass('primary')}>
-                        <PlusIcon />
-                        Añadir producto
-                    </button>
+                    <>
+                        <button onClick={() => setQrOpen(true)} className={buttonClass('secondary')}>
+                            <QrCodeIcon />
+                            Ver QR
+                        </button>
+                        <button onClick={() => handleOpenProductModal()} className={buttonClass('primary')}>
+                            <PlusIcon />
+                            Añadir producto
+                        </button>
+                    </>
                 }
             />
 
             <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
-                <StatCard label="Productos" value={loading ? '—' : stats.totalProducts.toString()} />
+                <StatCard label="Productos" value={loading ? '—' : stats.totalProducts.toString()} hint={stats.inactive > 0 ? `${stats.inactive} ${stats.inactive === 1 ? 'desactivado' : 'desactivados'}` : undefined} />
                 <StatCard label="No disponibles" value={loading ? '—' : stats.unavailable.toString()} hint="Marcados sin stock" />
                 <StatCard label="Artículos en stock" value={loading ? '—' : stats.totalStock.toLocaleString('es-CL')} hint={stockHint} />
                 <StatCard label="Valor del inventario" value={loading ? '—' : formatPrice(stats.totalValue)} hint={stockHint} />
             </div>
 
-            <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-                <section className={`${cardClass} min-w-0 overflow-hidden xl:col-span-2`}>
+            <div className="space-y-6">
+                <section className={`${cardClass} min-w-0 overflow-hidden`}>
                     <div className="flex flex-col gap-3 border-b border-line p-4 sm:flex-row sm:items-center">
                         <div className="relative flex-1">
                             <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center [&_svg]:h-4 [&_svg]:w-4 [&_svg]:text-fg-subtle"><SearchIcon /></span>
@@ -319,6 +310,7 @@ const Dashboard: React.FC = () => {
                                     <th className="px-3 py-2.5 font-medium">Precio</th>
                                     <th className="px-3 py-2.5 font-medium">Stock</th>
                                     <th className="px-3 py-2.5 font-medium">Sin stock</th>
+                                    <th className="px-3 py-2.5 font-medium">Activo</th>
                                     <th className="py-2.5 pl-3 pr-5"><span className="sr-only">Acciones</span></th>
                                 </tr>
                             </thead>
@@ -326,10 +318,10 @@ const Dashboard: React.FC = () => {
                                 {loading ? (
                                     <SkeletonRows />
                                 ) : visibleProducts.length > 0 ? (
-                                    visibleProducts.map(p => <ProductRow key={p.id} product={p} uploading={uploadingIds.has(p.id)} onEdit={() => handleOpenProductModal(p)} onDelete={handleDeleteProduct} onToggleOutOfStock={handleToggleOutOfStock} onUploadImage={handleUploadImage} />)
+                                    visibleProducts.map(p => <ProductRow key={p.id} product={p} uploading={uploadingIds.has(p.id)} onEdit={() => handleOpenProductModal(p)} onDelete={handleDeleteProduct} onToggleOutOfStock={handleToggleOutOfStock} onToggleActive={handleToggleActive} onUploadImage={handleUploadImage} />)
                                 ) : (
                                     <tr>
-                                        <td colSpan={5} className="px-5 py-16 text-center">
+                                        <td colSpan={6} className="px-5 py-16 text-center">
                                             <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-muted text-fg-subtle [&_svg]:h-5 [&_svg]:w-5"><PackageIcon /></div>
                                             {products.length === 0 ? (
                                                 <>
@@ -356,55 +348,30 @@ const Dashboard: React.FC = () => {
                     )}
                 </section>
 
-                <div className="min-w-0 space-y-6">
-                    <section className={`${cardClass} p-5`}>
-                        <h2 className="text-sm font-semibold text-fg">Código QR de la tienda</h2>
-                        <p className="mt-1 text-sm text-fg-muted">Escanéalo para abrir tu carta pública.</p>
-                        <div className="mt-5 flex justify-center">
-                            <div className="rounded-xl border border-line bg-white p-2">
-                                <QRCodeComponent url={storeUrl} />
-                            </div>
-                        </div>
-                        <div className="mt-5 flex items-center gap-2 rounded-lg border border-line bg-muted/50 py-1 pl-3 pr-1">
-                            <a href={storeUrl} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 truncate text-xs text-fg-muted hover:text-fg" title={storeUrl}>
-                                {storeUrl.replace(/^https?:\/\//, '')}
-                            </a>
-                            <button onClick={handleCopyUrl} className={iconButtonClass} title={copied ? 'Copiado' : 'Copiar enlace'} aria-label="Copiar enlace">
-                                {copied ? <span className="text-success"><CheckIcon /></span> : <CopyIcon />}
-                            </button>
-                        </div>
-                        <button onClick={handleDownloadQR} className={`${buttonClass('secondary')} mt-3 w-full`}>
-                            <DownloadIcon />
-                            Descargar QR (1024 px)
-                        </button>
-                    </section>
-
-                    <ThemePickerCard />
-
-                    <section className={`${cardClass} p-5`}>
-                        <h2 className="text-sm font-semibold text-fg">Productos por categoría</h2>
-                        <div className="mt-4 h-64">
-                            <ResponsiveContainer>
-                                <BarChart data={categoryData} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartColors.grid} />
-                                    <XAxis dataKey="name" tick={{ fill: chartColors.tick, fontSize: 11 }} axisLine={false} tickLine={false} interval={0} angle={-30} textAnchor="end" height={56} />
-                                    <YAxis allowDecimals={false} tick={{ fill: chartColors.tick, fontSize: 11 }} axisLine={false} tickLine={false} />
-                                    <Tooltip
-                                        cursor={{ fill: chartColors.cursor }}
-                                        contentStyle={{ background: chartColors.tooltipBg, border: `1px solid ${chartColors.tooltipBorder}`, borderRadius: 8, fontSize: 12, color: chartColors.tooltipText }}
-                                        labelStyle={{ color: chartColors.tooltipText, fontWeight: 600 }}
-                                        itemStyle={{ color: chartColors.tooltipText }}
-                                        formatter={(value) => [value, 'Productos']}
-                                    />
-                                    <Bar dataKey="value" fill={chartColors.bar} radius={[4, 4, 0, 0]} maxBarSize={32} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </section>
-                </div>
+                <section className={`${cardClass} p-5`}>
+                    <h2 className="text-sm font-semibold text-fg">Productos por categoría</h2>
+                    <div className="mt-4 h-64">
+                        <ResponsiveContainer>
+                            <BarChart data={categoryData} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartColors.grid} />
+                                <XAxis dataKey="name" tick={{ fill: chartColors.tick, fontSize: 11 }} axisLine={false} tickLine={false} interval={0} angle={-30} textAnchor="end" height={56} />
+                                <YAxis allowDecimals={false} tick={{ fill: chartColors.tick, fontSize: 11 }} axisLine={false} tickLine={false} />
+                                <Tooltip
+                                    cursor={{ fill: chartColors.cursor }}
+                                    contentStyle={{ background: chartColors.tooltipBg, border: `1px solid ${chartColors.tooltipBorder}`, borderRadius: 8, fontSize: 12, color: chartColors.tooltipText }}
+                                    labelStyle={{ color: chartColors.tooltipText, fontWeight: 600 }}
+                                    itemStyle={{ color: chartColors.tooltipText }}
+                                    formatter={(value) => [value, 'Productos']}
+                                />
+                                <Bar dataKey="value" fill={chartColors.bar} radius={[4, 4, 0, 0]} maxBarSize={32} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </section>
             </div>
 
             {isProductModalOpen && <ProductModal product={editingProduct} categories={categories} onClose={handleCloseProductModal} onSave={handleSaveProduct} />}
+            {qrOpen && <StoreQRModal onClose={() => setQrOpen(false)} />}
         </>
     );
 };

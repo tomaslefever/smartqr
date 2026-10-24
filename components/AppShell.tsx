@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.tsx';
 import SettingsModal from './SettingsModal.tsx';
+import StoreQRModal from './StoreQRModal.tsx';
 import ColorModeToggle from './ColorModeToggle.tsx';
-import { CloseIcon, ColorSwatchIcon, ExternalLinkIcon, LogoutIcon, MenuIcon, QrMarkIcon, SettingsIcon, ViewGridIcon } from './Icons.tsx';
+import { CloseIcon, ColorSwatchIcon, ExternalLinkIcon, LogoutIcon, MenuIcon, QrCodeIcon, QrMarkIcon, SettingsIcon, ViewGridIcon } from './Icons.tsx';
 import { iconButtonClass } from './ui.ts';
 
 const navItemClass = (active: boolean) =>
@@ -18,7 +19,7 @@ export const Logo: React.FC = () => (
     </div>
 );
 
-const SidebarContent: React.FC<{ onOpenSettings: () => void }> = ({ onOpenSettings }) => {
+const SidebarContent: React.FC<{ onOpenSettings: () => void; onOpenQR: () => void }> = ({ onOpenSettings, onOpenQR }) => {
     const { user, signOut } = useAuth();
     const initial = (user?.email ?? '?').charAt(0).toUpperCase();
 
@@ -35,6 +36,10 @@ const SidebarContent: React.FC<{ onOpenSettings: () => void }> = ({ onOpenSettin
                     <ColorSwatchIcon />
                     Estilo de la carta
                 </NavLink>
+                <button type="button" onClick={onOpenQR} className={navItemClass(false)}>
+                    <QrCodeIcon />
+                    Código QR
+                </button>
                 <button type="button" onClick={onOpenSettings} className={navItemClass(false)}>
                     <SettingsIcon />
                     Configuración
@@ -64,6 +69,7 @@ const AppShell: React.FC = () => {
     const { user } = useAuth();
     const [mobileOpen, setMobileOpen] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
+    const [qrOpen, setQrOpen] = useState(false);
     const location = useLocation();
 
     useEffect(() => setMobileOpen(false), [location.pathname]);
@@ -73,10 +79,15 @@ const AppShell: React.FC = () => {
         setSettingsOpen(true);
     };
 
+    const openQR = () => {
+        setMobileOpen(false);
+        setQrOpen(true);
+    };
+
     return (
         <div className="min-h-screen bg-canvas text-fg">
             <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-line bg-surface lg:block">
-                <SidebarContent onOpenSettings={openSettings} />
+                <SidebarContent onOpenSettings={openSettings} onOpenQR={openQR} />
             </aside>
 
             <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-line bg-surface/80 px-4 backdrop-blur lg:hidden">
@@ -93,7 +104,7 @@ const AppShell: React.FC = () => {
                         <button type="button" onClick={() => setMobileOpen(false)} className={`${iconButtonClass} absolute right-3 top-4`} aria-label="Cerrar menú">
                             <CloseIcon />
                         </button>
-                        <SidebarContent onOpenSettings={openSettings} />
+                        <SidebarContent onOpenSettings={openSettings} onOpenQR={openQR} />
                     </aside>
                 </div>
             )}
@@ -105,6 +116,7 @@ const AppShell: React.FC = () => {
             </main>
 
             {settingsOpen && user && <SettingsModal user={user} onClose={() => setSettingsOpen(false)} />}
+            {qrOpen && <StoreQRModal onClose={() => setQrOpen(false)} />}
         </div>
     );
 };
