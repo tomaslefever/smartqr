@@ -11,13 +11,13 @@ export const getStoreUrl = (userId: string | undefined) =>
     `${window.location.origin}${window.location.pathname}#/store/${userId}`;
 
 // margin 4 keeps the standard quiet zone so the printed code scans reliably
-const toPrintableDataUrl = (url: string) => QRCode.toDataURL(url, { ...QR_OPTIONS, width: 1024, margin: 4 });
+export const toPrintableDataUrl = (url: string) => QRCode.toDataURL(url, { ...QR_OPTIONS, width: 1024, margin: 4 });
 
 const escapeHtml = (text: string) =>
     text.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
 // Prints a page with the business name and the QR from a hidden iframe, so the panel itself is not printed
-const printQR = (dataUrl: string, businessName: string) => {
+export const printQR = (dataUrl: string, businessName: string) => {
     const html = `<!doctype html><html><head><meta charset="utf-8"><title>Código QR</title><style>
         @page { margin: 20mm; }
         body { margin: 0; font-family: system-ui, sans-serif; text-align: center; color: #18181b; }

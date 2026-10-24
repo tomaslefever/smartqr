@@ -1,10 +1,23 @@
 
+export interface Category {
+  id: number;
+  user_id: string;
+  name: string;
+  // Order in the menu (1 = first)
+  position: number | null;
+  created_at: string;
+}
+
 export interface Product {
   id: number;
   name: string;
   description: string;
   price: number;
+  // Name of the product's category ('' when it has none). Read from the categories table when it
+  // exists (supabase/categories.sql); the products.category text column is only kept in sync for
+  // compatibility.
   category: string;
+  category_id?: number | null;
   image_url: string;
   stock: number;
   // When false the product has no stock control and `stock` is ignored

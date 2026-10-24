@@ -40,6 +40,8 @@ const Store: React.FC = () => {
     const [products, setProducts] = useState<Product[]>([]);
     const [profile, setProfile] = useState<Profile | null>(null);
     const [theme, setTheme] = useState<Theme | null>(null);
+    // The business's categories in menu order (empty before supabase/categories.sql)
+    const [categoryOrder, setCategoryOrder] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('Todos');
@@ -68,10 +70,12 @@ const Store: React.FC = () => {
             };
             setLoading(true);
             try {
-                const [productsData, profileData] = await Promise.all([
+                const [productsData, profileData, categoriesData] = await Promise.all([
                     supabaseService.getProductsByUserId(userId),
-                    supabaseService.getPublicProfileByUserId(userId)
+                    supabaseService.getPublicProfileByUserId(userId),
+                    supabaseService.getCategoriesByUserId(userId),
                 ]);
+                setCategoryOrder(categoriesData.map(c => c.name));
                 // Fetched separately (not embedded) so the store still loads if the themes table is missing
                 const themeData = profileData?.theme_id ? await supabaseService.getTheme(profileData.theme_id) : null;
                 // Rows from before supabase/products-active.sql have no `active` value and count as active
@@ -133,11 +137,16 @@ const Store: React.FC = () => {
         }
     }, [selectedCategory]);
 
-    // Category is optional: products without one have no chip and are listed first, without a title
+    // Category is optional: products without one have no chip and are listed first, without a title.
+    // Categories follow the business's own order; any not in it follow their first product.
     const categories = useMemo(() => {
-        const allCategories = products.map(p => p.category).filter(Boolean);
-        return ['Todos', ...Array.from(new Set(allCategories))];
-    }, [products]);
+        const used = Array.from(new Set<string>(products.map(p => p.category).filter(Boolean)));
+        const rank = (name: string) => {
+            const index = categoryOrder.indexOf(name);
+            return index === -1 ? categoryOrder.length + used.indexOf(name) : index;
+        };
+        return ['Todos', ...used.sort((a, b) => rank(a) - rank(b))];
+    }, [products, categoryOrder]);
 
     const productsByCategory = useMemo(() => {
         const grouped: { [key: string]: Product[] } = {};

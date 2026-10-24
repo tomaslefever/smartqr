@@ -1,30 +1,45 @@
 import { supabase } from './supabaseClient.ts';
-import { Product, Profile, Theme, ThemeStyle } from '../types.ts';
+import { Category, Product, Profile, Theme, ThemeStyle } from '../types.ts';
 
 const BUCKET_NAME = 'product-images';
 
 // --- Product Functions ---
 
-// Postgres error for a column that does not exist (e.g. before supabase/products-position.sql runs)
-const UNDEFINED_COLUMN = '42703';
+// Errors for a column, table or relationship that does not exist yet, i.e. a migration in supabase/
+// that has not run: queries then fall back to what the previous schema had
+const MISSING_SCHEMA_ERRORS = new Set(['42703', '42P01', 'PGRST200', 'PGRST204', 'PGRST205']);
+const isMissingSchema = (error: { code?: string } | null) => !!error?.code && MISSING_SCHEMA_ERRORS.has(error.code);
 
-// A business's products in their manual order (newest first for any without a position)
+type ProductRow = Product & { category_ref?: { name: string } | null };
+
+// A business's products in their manual order (newest first for any without a position), with the
+// category name taken from the categories table
 const fetchProductsInOrder = async (userId: string): Promise<Product[]> => {
     if (!supabase) return [];
 
-    const query = () => supabase!.from('products').select('*').eq('user_id', userId);
-    let { data: products, error } = await query()
-        .order('position', { ascending: true, nullsFirst: false })
-        .order('created_at', { ascending: false });
+    const attempts = [
+        { select: '*, category_ref:categories(name)', byPosition: true },
+        { select: '*', byPosition: true },   // before supabase/categories.sql
+        { select: '*', byPosition: false },  // before supabase/products-position.sql
+    ];
+    for (const { select, byPosition } of attempts) {
+        let query = supabase.from('products').select(select).eq('user_id', userId);
+        if (byPosition) query = query.order('position', { ascending: true, nullsFirst: false });
+        const { data, error } = await query.order('created_at', { ascending: false });
 
-    if (error?.code === UNDEFINED_COLUMN) {
-        ({ data: products, error } = await query().order('created_at', { ascending: false }));
+        if (!error) {
+            const withCategoryTable = select.includes('category_ref');
+            return (data as unknown as ProductRow[]).map(({ category_ref, ...product }) => ({
+                ...product,
+                category: withCategoryTable ? category_ref?.name ?? '' : product.category ?? '',
+            }));
+        }
+        if (!isMissingSchema(error)) {
+            console.error('Error fetching products:', error);
+            return [];
+        }
     }
-    if (error) {
-        console.error('Error fetching products:', error);
-        return [];
-    }
-    return products as Product[];
+    return [];
 };
 
 export const getProducts = async (): Promise<Product[]> => {
@@ -121,37 +136,96 @@ export const deleteProduct = async (id: number): Promise<boolean> => {
 
 // --- Category Functions ---
 
-export const getCategories = async (): Promise<string[]> => {
-    if (!supabase) return ['Sample Category 1', 'Sample Category 2'];
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-        console.error("No user logged in to get categories");
-        return [];
-    }
+const fetchCategories = async (userId: string): Promise<Category[]> => {
+    if (!supabase) return [];
 
     const { data, error } = await supabase
-        .from('products')
-        .select('category')
-        .eq('user_id', user.id);
+        .from('categories')
+        .select('*')
+        .eq('user_id', userId)
+        .order('position', { ascending: true, nullsFirst: false })
+        .order('name', { ascending: true });
 
     if (error) {
-        console.error('Error fetching categories:', error);
+        // Before supabase/categories.sql there is no table: the store groups by the products' text category
+        if (!isMissingSchema(error)) console.error('Error fetching categories:', error);
         return [];
     }
+    return data as Category[];
+};
 
-    if (!data) {
-        return [];
+// The logged-in business's categories, in menu order
+export const getCategoryList = async (): Promise<Category[]> => {
+    if (!supabase) return [];
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+    return fetchCategories(user.id);
+};
+
+export const getCategoriesByUserId = async (userId: string): Promise<Category[]> => fetchCategories(userId);
+
+// New categories go to the end of the menu
+export const createCategory = async (name: string): Promise<Category | null> => {
+    if (!supabase) return null;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    const existing = await fetchCategories(user.id);
+    const position = Math.max(0, ...existing.map(c => c.position ?? 0)) + 1;
+
+    const { data, error } = await supabase
+        .from('categories')
+        .insert([{ user_id: user.id, name: name.trim(), position }])
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error creating category:', error);
+        return null;
     }
-    
-    // FIX: The type from Supabase for `data` is `any[]`.
-    // We map over the data to get categories, then use a type guard to filter for non-empty strings.
-    // This ensures that the resulting array is `string[]`, satisfying the function's return type.
-    const categories = data
-        .map(item => item.category)
-        .filter((category): category is string => typeof category === 'string' && category.length > 0);
+    return data as Category;
+};
 
-    return Array.from(new Set(categories));
+export const renameCategory = async (id: number, name: string): Promise<Category | null> => {
+    if (!supabase) return null;
+
+    const { data, error } = await supabase
+        .from('categories')
+        .update({ name: name.trim() })
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error renaming category:', error);
+        return null;
+    }
+    return data as Category;
+};
+
+// Its products are left without a category (on delete set null)
+export const deleteCategory = async (id: number): Promise<boolean> => {
+    if (!supabase) return false;
+
+    const { error } = await supabase.from('categories').delete().eq('id', id);
+    if (error) {
+        console.error('Error deleting category:', error);
+        return false;
+    }
+    return true;
+};
+
+export const reorderCategories = async (categoryIds: number[]): Promise<boolean> => {
+    if (!supabase) return false;
+
+    const { error } = await supabase.rpc('reorder_categories', { category_ids: categoryIds });
+    if (error) {
+        console.error('Error reordering categories:', error);
+        return false;
+    }
+    return true;
 };
 
 // --- Image Upload Function ---

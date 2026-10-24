@@ -9,6 +9,14 @@ Panel para que negocios administren su inventario de productos y compartan una t
   - Tablas `products` y `profiles` con sus políticas RLS.
   - Un bucket de Storage **público** llamado `product-images`, con las políticas de
     [`supabase/storage-policies.sql`](supabase/storage-policies.sql).
+  - Las migraciones de [`supabase/`](supabase/), ejecutadas en el SQL Editor en este orden
+    (todas se pueden volver a correr sin problema):
+    1. `storage-policies.sql`
+    2. `products-stock.sql`
+    3. `themes.sql`
+    4. `products-active.sql`
+    5. `products-position.sql`
+    6. `categories.sql`
 
 ## Configuración
 

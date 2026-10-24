@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useOutletContext } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.tsx';
 import SettingsModal from './SettingsModal.tsx';
 import StoreQRModal from './StoreQRModal.tsx';
 import ColorModeToggle from './ColorModeToggle.tsx';
-import { CloseIcon, ColorSwatchIcon, ExternalLinkIcon, LogoutIcon, MenuIcon, QrCodeIcon, QrMarkIcon, SettingsIcon, ViewGridIcon } from './Icons.tsx';
+import { CloseIcon, ColorSwatchIcon, ExternalLinkIcon, HomeIcon, LogoutIcon, MenuIcon, QrCodeIcon, QrMarkIcon, SettingsIcon, TagIcon, ViewGridIcon } from './Icons.tsx';
 import { iconButtonClass } from './ui.ts';
 
 const navItemClass = (active: boolean) =>
@@ -29,8 +29,16 @@ const SidebarContent: React.FC<{ onOpenSettings: () => void; onOpenQR: () => voi
 
             <nav className="flex-1 space-y-1 px-3" aria-label="Principal">
                 <NavLink to="/" end className={({ isActive }) => navItemClass(isActive)}>
+                    <HomeIcon />
+                    Inicio
+                </NavLink>
+                <NavLink to="/productos" className={({ isActive }) => navItemClass(isActive)}>
                     <ViewGridIcon />
                     Productos
+                </NavLink>
+                <NavLink to="/categorias" className={({ isActive }) => navItemClass(isActive)}>
+                    <TagIcon />
+                    Categorías
                 </NavLink>
                 <NavLink to="/estilo" className={({ isActive }) => navItemClass(isActive)}>
                     <ColorSwatchIcon />
@@ -63,6 +71,14 @@ const SidebarContent: React.FC<{ onOpenSettings: () => void; onOpenQR: () => voi
         </div>
     );
 };
+
+// Actions of the shell that pages can trigger (e.g. the home page's shortcuts)
+interface ShellContext {
+    openQR: () => void;
+    openSettings: () => void;
+}
+
+export const useShell = () => useOutletContext<ShellContext>();
 
 // Layout of the private pages: fixed sidebar on desktop, slide-over menu on mobile
 const AppShell: React.FC = () => {
@@ -111,7 +127,7 @@ const AppShell: React.FC = () => {
 
             <main className="lg:pl-64">
                 <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-10 lg:py-10">
-                    <Outlet />
+                    <Outlet context={{ openQR, openSettings } satisfies ShellContext} />
                 </div>
             </main>
 

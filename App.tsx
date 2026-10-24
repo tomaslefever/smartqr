@@ -1,5 +1,7 @@
 import React from 'react';
-import Dashboard from './components/Dashboard.tsx';
+import HomePage from './components/HomePage.tsx';
+import ProductsPage from './components/ProductsPage.tsx';
+import CategoriesPage from './components/CategoriesPage.tsx';
 import Store from './components/Store.tsx';
 import StoreStylePage from './components/StoreStylePage.tsx';
 import AppShell from './components/AppShell.tsx';
@@ -29,7 +31,9 @@ const App: React.FC = () => {
                 </PrivateRoute>
               }
             >
-              <Route path="/" element={<Dashboard />} />
+              <Route path="/" element={<HomePage />} />
+              <Route path="/productos" element={<ProductsPage />} />
+              <Route path="/categorias" element={<CategoriesPage />} />
               <Route path="/estilo" element={<StoreStylePage />} />
             </Route>
           </Routes>
