@@ -1,15 +1,16 @@
 import type React from 'react';
-import { StoreTheme } from '../types.ts';
+import { ThemeStyle } from '../types.ts';
 import { supabaseUrl } from '../services/supabaseClient.ts';
 
-export const DEFAULT_STORE_THEME: StoreTheme = {
-    backgroundType: 'color',
-    backgroundColor: '#F9F9F0',
-    backgroundImageUrl: '',
-    backgroundImageSize: 200,
-    cardColor: '#FFFFFF',
-    textColor: '#3D3D3D',
-    accentColor: '#4A7C59',
+// Same values as the predefined "Clásico" theme
+export const DEFAULT_THEME_STYLE: ThemeStyle = {
+    background_type: 'color',
+    background_color: '#F9F9F0',
+    background_image_url: null,
+    background_image_size: 200,
+    card_color: '#FFFFFF',
+    text_color: '#3D3D3D',
+    accent_color: '#4A7C59',
 };
 
 export const PATTERN_SIZE_MIN = 40;
@@ -25,25 +26,38 @@ const isStorageImageUrl = (value: unknown): value is string =>
     value.startsWith(`${supabaseUrl}/storage/v1/object/public/`) &&
     !/["'()\\\s]/.test(value);
 
-// The theme is read from a public profile row, so any malformed value falls back to the default
-export const normalizeStoreTheme = (raw: unknown): StoreTheme => {
+export const pickThemeStyle = (theme: ThemeStyle): ThemeStyle => ({
+    background_type: theme.background_type,
+    background_color: theme.background_color,
+    background_image_url: theme.background_image_url,
+    background_image_size: theme.background_image_size,
+    card_color: theme.card_color,
+    text_color: theme.text_color,
+    accent_color: theme.accent_color,
+});
+
+// Themes are public rows, so any malformed value falls back to the default instead of reaching the CSS
+export const normalizeThemeStyle = (raw: unknown): ThemeStyle => {
     const theme = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
-    const d = DEFAULT_STORE_THEME;
-    const imageUrl = isStorageImageUrl(theme.backgroundImageUrl) ? theme.backgroundImageUrl : '';
-    const size = typeof theme.backgroundImageSize === 'number' && Number.isFinite(theme.backgroundImageSize)
-        ? Math.min(PATTERN_SIZE_MAX, Math.max(PATTERN_SIZE_MIN, Math.round(theme.backgroundImageSize)))
-        : d.backgroundImageSize;
+    const d = DEFAULT_THEME_STYLE;
+    const imageUrl = isStorageImageUrl(theme.background_image_url) ? theme.background_image_url : null;
+    const size = typeof theme.background_image_size === 'number' && Number.isFinite(theme.background_image_size)
+        ? Math.min(PATTERN_SIZE_MAX, Math.max(PATTERN_SIZE_MIN, Math.round(theme.background_image_size)))
+        : d.background_image_size;
 
     return {
-        backgroundType: theme.backgroundType === 'image' && imageUrl ? 'image' : 'color',
-        backgroundColor: isHexColor(theme.backgroundColor) ? theme.backgroundColor : d.backgroundColor,
-        backgroundImageUrl: imageUrl,
-        backgroundImageSize: size,
-        cardColor: isHexColor(theme.cardColor) ? theme.cardColor : d.cardColor,
-        textColor: isHexColor(theme.textColor) ? theme.textColor : d.textColor,
-        accentColor: isHexColor(theme.accentColor) ? theme.accentColor : d.accentColor,
+        background_type: theme.background_type === 'image' && imageUrl ? 'image' : 'color',
+        background_color: isHexColor(theme.background_color) ? theme.background_color : d.background_color,
+        background_image_url: imageUrl,
+        background_image_size: size,
+        card_color: isHexColor(theme.card_color) ? theme.card_color : d.card_color,
+        text_color: isHexColor(theme.text_color) ? theme.text_color : d.text_color,
+        accent_color: isHexColor(theme.accent_color) ? theme.accent_color : d.accent_color,
     };
 };
+
+export const sameThemeStyle = (a: ThemeStyle, b: ThemeStyle) =>
+    JSON.stringify(pickThemeStyle(a)) === JSON.stringify(pickThemeStyle(b));
 
 const relativeLuminance = (hex: string) => {
     const [r, g, b] = [1, 3, 5]
@@ -60,22 +74,23 @@ const readableOn = (hex: string) => {
     return contrastWithWhite >= contrastWithDark ? '#FFFFFF' : '#1F1F1F';
 };
 
-// CSS variables consumed by the store markup (classes like text-[color:var(--store-accent)])
-export const storeThemeStyle = (theme: StoreTheme): React.CSSProperties => ({
-    '--store-card': theme.cardColor,
-    '--store-text': theme.textColor,
-    '--store-muted': `color-mix(in srgb, ${theme.textColor} 70%, transparent)`,
-    '--store-subtle': `color-mix(in srgb, ${theme.textColor} 8%, transparent)`,
-    '--store-border': `color-mix(in srgb, ${theme.textColor} 18%, transparent)`,
-    '--store-accent': theme.accentColor,
-    '--store-accent-soft': `color-mix(in srgb, ${theme.accentColor} 25%, transparent)`,
-    '--store-on-accent': readableOn(theme.accentColor),
-    backgroundColor: theme.backgroundColor,
-    ...(theme.backgroundType === 'image'
+// CSS variables consumed by the store markup (classes like text-[color:var(--store-accent)]).
+// Expects a normalized style.
+export const themeStyleVars = (theme: ThemeStyle): React.CSSProperties => ({
+    '--store-card': theme.card_color,
+    '--store-text': theme.text_color,
+    '--store-muted': `color-mix(in srgb, ${theme.text_color} 70%, transparent)`,
+    '--store-subtle': `color-mix(in srgb, ${theme.text_color} 8%, transparent)`,
+    '--store-border': `color-mix(in srgb, ${theme.text_color} 18%, transparent)`,
+    '--store-accent': theme.accent_color,
+    '--store-accent-soft': `color-mix(in srgb, ${theme.accent_color} 25%, transparent)`,
+    '--store-on-accent': readableOn(theme.accent_color),
+    backgroundColor: theme.background_color,
+    ...(theme.background_type === 'image' && theme.background_image_url
         ? {
-            backgroundImage: `url("${theme.backgroundImageUrl}")`,
+            backgroundImage: `url("${theme.background_image_url}")`,
             backgroundRepeat: 'repeat',
-            backgroundSize: `${theme.backgroundImageSize}px auto`,
+            backgroundSize: `${theme.background_image_size}px auto`,
         }
         : {}),
 } as React.CSSProperties);

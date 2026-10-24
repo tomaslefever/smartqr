@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { Product, Profile } from '../types.ts';
+import { Product, Profile, Theme } from '../types.ts';
 import * as supabaseService from '../services/supabaseService.ts';
 import { SearchIcon, PhoneIcon, MailIcon, LocationMarkerIcon } from './Icons.tsx';
 import ProductDetailModal from './ProductDetailModal.tsx';
-import { normalizeStoreTheme, storeThemeStyle } from './storeTheme.ts';
+import { normalizeThemeStyle, themeStyleVars } from './storeTheme.ts';
 
 export const ProductCard: React.FC<{ product: Product; onClick: () => void; }> = ({ product, onClick }) => (
     <button onClick={onClick} className={`bg-[color:var(--store-card)] rounded-xl shadow-lg overflow-hidden transform hover:-translate-y-1 transition-transform duration-300 group text-left w-full ${product.out_of_stock ? 'opacity-60' : ''}`}>
@@ -28,6 +28,7 @@ const Store: React.FC = () => {
     const { userId } = useParams<{ userId: string }>();
     const [products, setProducts] = useState<Product[]>([]);
     const [profile, setProfile] = useState<Profile | null>(null);
+    const [theme, setTheme] = useState<Theme | null>(null);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('Todos');
@@ -49,8 +50,11 @@ const Store: React.FC = () => {
                     supabaseService.getProductsByUserId(userId),
                     supabaseService.getPublicProfileByUserId(userId)
                 ]);
+                // Fetched separately (not embedded) so the store still loads if the themes table is missing
+                const themeData = profileData?.theme_id ? await supabaseService.getTheme(profileData.theme_id) : null;
                 setProducts(productsData);
                 setProfile(profileData);
+                setTheme(themeData);
             } catch (error) {
                 console.error("Failed to fetch store data:", error);
             } finally {
@@ -139,10 +143,15 @@ const Store: React.FC = () => {
     };
 
     const displayCategories = Object.keys(productsByCategory);
-    const theme = useMemo(() => normalizeStoreTheme(profile?.store_theme), [profile]);
+    const themeStyle = useMemo(() => normalizeThemeStyle(theme), [theme]);
+
+    // Avoid flashing the default style before the business's theme is known
+    if (loading) {
+        return <div className="min-h-screen flex items-center justify-center text-gray-500">Cargando...</div>;
+    }
 
     return (
-        <div className="min-h-screen flex flex-col text-[color:var(--store-text)]" style={storeThemeStyle(theme)}>
+        <div className="min-h-screen flex flex-col text-[color:var(--store-text)]" style={themeStyleVars(themeStyle)}>
             <header className="bg-[color:var(--store-card)] shadow-md sticky top-0 z-10">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center">
                     <h1 className="text-4xl font-bold text-[color:var(--store-accent)]">{profile?.business_name || 'Bienvenido a la Tienda'}</h1>
@@ -182,9 +191,7 @@ const Store: React.FC = () => {
                     </div>
                 </div>
 
-                {loading ? (
-                    <div className="text-center text-[color:var(--store-muted)] text-xl py-12">Cargando productos frescos...</div>
-                ) : !userId || products.length === 0 && searchTerm === '' ? (
+                {!userId || products.length === 0 && searchTerm === '' ? (
                      <div className="text-center text-[color:var(--store-muted)] py-12">
                         <h2 className="text-2xl font-semibold">Tienda no encontrada o vacía</h2>
                         <p className="mt-2">Esta tienda puede no existir o aún no tener productos.</p>

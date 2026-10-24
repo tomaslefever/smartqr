@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient.ts';
-import { Product, Profile, StoreTheme } from '../types.ts';
+import { Product, Profile, Theme, ThemeStyle } from '../types.ts';
 
 const BUCKET_NAME = 'product-images';
 
@@ -253,7 +253,97 @@ export const updateProfile = async (profileData: Omit<Profile, 'email'>): Promis
     return data as Profile;
 };
 
-export const updateStoreTheme = async (theme: StoreTheme): Promise<boolean> => {
+// --- Theme Functions ---
+
+// Predefined themes first, then the user's own themes
+export const getThemes = async (): Promise<Theme[]> => {
+    if (!supabase) return [];
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    const { data, error } = await supabase
+        .from('themes')
+        .select('*')
+        .or(`owner_id.is.null,owner_id.eq.${user.id}`)
+        .order('owner_id', { ascending: true, nullsFirst: true })
+        .order('created_at', { ascending: true });
+
+    if (error) {
+        console.error('Error fetching themes:', error);
+        return [];
+    }
+    return data as Theme[];
+};
+
+export const getTheme = async (id: string): Promise<Theme | null> => {
+    if (!supabase) return null;
+
+    const { data, error } = await supabase
+        .from('themes')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+
+    if (error) {
+        console.error('Error fetching theme:', error);
+        return null;
+    }
+    return data as Theme | null;
+};
+
+export const createTheme = async (name: string, style: ThemeStyle): Promise<Theme | null> => {
+    if (!supabase) return null;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    const { data, error } = await supabase
+        .from('themes')
+        .insert([{ ...style, name, owner_id: user.id }])
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error creating theme:', error);
+        return null;
+    }
+    return data as Theme;
+};
+
+export const updateTheme = async (id: string, name: string, style: ThemeStyle): Promise<Theme | null> => {
+    if (!supabase) return null;
+
+    const { data, error } = await supabase
+        .from('themes')
+        .update({ ...style, name, updated_at: new Date() })
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error updating theme:', error);
+        return null;
+    }
+    return data as Theme;
+};
+
+export const deleteTheme = async (id: string): Promise<boolean> => {
+    if (!supabase) return false;
+
+    const { error } = await supabase
+        .from('themes')
+        .delete()
+        .eq('id', id);
+
+    if (error) {
+        console.error('Error deleting theme:', error);
+        return false;
+    }
+    return true;
+};
+
+export const setActiveTheme = async (themeId: string | null): Promise<boolean> => {
     if (!supabase) return false;
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -262,10 +352,10 @@ export const updateStoreTheme = async (theme: StoreTheme): Promise<boolean> => {
     // Upsert with only these columns, so the business details in the profile are left as they are
     const { error } = await supabase
         .from('profiles')
-        .upsert({ id: user.id, store_theme: theme });
+        .upsert({ id: user.id, theme_id: themeId });
 
     if (error) {
-        console.error('Error updating store theme:', error);
+        console.error('Error setting active theme:', error);
         return false;
     }
     return true;

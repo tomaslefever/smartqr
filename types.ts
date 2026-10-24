@@ -15,18 +15,25 @@ export interface Product {
   unit: 'unit' | 'kg';
 }
 
-export interface StoreTheme {
-  backgroundType: 'color' | 'image';
-  backgroundColor: string;
-  // Public URL of an image in the product-images bucket, tiled as a pattern; '' when none
-  backgroundImageUrl: string;
+export interface Theme {
+  id: string;
+  // null for predefined themes available to every business
+  owner_id: string | null;
+  name: string;
+  background_type: 'color' | 'image';
+  background_color: string;
+  // Public URL of an image in the product-images bucket, tiled as a pattern
+  background_image_url: string | null;
   // Width in px of each pattern tile
-  backgroundImageSize: number;
-  cardColor: string;
-  textColor: string;
+  background_image_size: number;
+  card_color: string;
+  text_color: string;
   // Store title, categories, prices and the selected category chip
-  accentColor: string;
+  accent_color: string;
 }
+
+// The visual part of a theme, what the editor changes and the store renders
+export type ThemeStyle = Omit<Theme, 'id' | 'owner_id' | 'name'>;
 
 export interface Profile {
   id: string; // Corresponds to user_id
@@ -35,5 +42,6 @@ export interface Profile {
   address: string | null;
   opening_hours: string | null;
   email: string | null;
-  store_theme?: Partial<StoreTheme> | null;
+  // Theme used by the public store; null means the default style
+  theme_id?: string | null;
 }
