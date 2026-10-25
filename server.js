@@ -31,6 +31,8 @@ const COMPRESSIBLE = new Set(['.html', '.js', '.css', '.json', '.svg', '.txt']);
 const runtimeConfig = {
     supabaseUrl: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
     supabaseAnonKey: process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '',
+    // Number of the WhatsApp setup assistant shown on the landing page (optional)
+    whatsappNumber: process.env.WHATSAPP_NUMBER || process.env.VITE_WHATSAPP_NUMBER || '',
 };
 const configJs = `window.__SMARTQR_CONFIG__ = ${JSON.stringify(runtimeConfig)};\n`;
 

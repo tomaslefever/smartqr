@@ -20,12 +20,13 @@ Panel para que negocios administren su inventario de productos y compartan una t
 
 ## Configuración
 
-La app necesita dos valores de tu proyecto de Supabase (*Project Settings → API*):
+La app necesita dos valores de tu proyecto de Supabase (*Project Settings → API*) y, opcionalmente, el número del asistente de WhatsApp:
 
 | Producción (Docker, `npm start`) | Desarrollo (`npm run dev`) | Valor |
 | --- | --- | --- |
 | `SUPABASE_URL` | `VITE_SUPABASE_URL` | URL del proyecto, p. ej. `https://xxxx.supabase.co` |
 | `SUPABASE_ANON_KEY` | `VITE_SUPABASE_ANON_KEY` | Clave `anon` (pública) |
+| `WHATSAPP_NUMBER` (opcional) | `VITE_WHATSAPP_NUMBER` | Número del asistente de WhatsApp, con código de país y sin `+`, p. ej. `56912345678`. Sin él, la landing no muestra los botones de WhatsApp |
 | `PORT` (opcional, por defecto `3000`) | | Puerto HTTP del servidor |
 
 En producción los valores se leen **al arrancar** el servidor, no al compilar: la misma imagen sirve para cualquier entorno y basta con cambiar las variables y reiniciar.

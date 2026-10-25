@@ -5,6 +5,7 @@ declare global {
         __SMARTQR_CONFIG__?: {
             supabaseUrl?: string;
             supabaseAnonKey?: string;
+            whatsappNumber?: string;
         };
     }
 }
