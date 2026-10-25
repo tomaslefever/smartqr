@@ -53,6 +53,20 @@ const PrimaryCTA: React.FC<{ className?: string }> = ({ className = '' }) => {
     );
 };
 
+// Compact version of the primary action for the sticky header
+const HeaderCTA: React.FC = () => {
+    const href = whatsappLink(WHATSAPP_MESSAGE);
+    const classes = `${buttonClass('primary', 'sm')} hidden sm:inline-flex`;
+    return href ? (
+        <a href={href} target="_blank" rel="noopener noreferrer" className={classes}>
+            <ChatIcon />
+            Escribir al asistente
+        </a>
+    ) : (
+        <Link to="/register" className={classes}>Crear cuenta</Link>
+    );
+};
+
 const SecondaryCTA: React.FC<{ className?: string }> = ({ className = '' }) =>
     whatsappLink(WHATSAPP_MESSAGE) ? (
         <Link to="/register" className={`${buttonClass('secondary')} h-12 px-6 text-base ${className}`}>
@@ -64,7 +78,8 @@ const SecondaryCTA: React.FC<{ className?: string }> = ({ className = '' }) =>
 
 const PhoneFrame: React.FC<{ children: React.ReactNode; className?: string; label: string }> = ({ children, className = '', label }) => (
     <div role="img" aria-label={label} className={`relative w-[17.5rem] rounded-[2.25rem] border border-line bg-surface p-2 shadow-pop sm:w-[19rem] ${className}`}>
-        <div className="overflow-hidden rounded-[1.75rem]">{children}</div>
+        {/* inert: the example cards inside are real store components, but here they are only a picture */}
+        <div inert className="overflow-hidden rounded-[1.75rem]">{children}</div>
     </div>
 );
 
@@ -154,7 +169,7 @@ const QRTableCard: React.FC<{ className?: string }> = ({ className = '' }) => (
 // The public store as customers see it, built with the store's own product cards and default theme
 const StoreMockup: React.FC = () => (
     <PhoneFrame label={`Ejemplo de la tienda de ${EXAMPLE_NAME} vista desde el celular de un cliente`}>
-        <div className="h-[32.5rem] overflow-hidden text-[color:var(--store-text)]" style={{ ...themeStyleVars(DEFAULT_THEME_STYLE), background: DEFAULT_THEME_STYLE.background_color }}>
+        <div className="h-[34rem] overflow-hidden text-[color:var(--store-text)]" style={{ ...themeStyleVars(DEFAULT_THEME_STYLE), background: DEFAULT_THEME_STYLE.background_color }}>
             <div className="bg-[color:var(--store-card)] px-4 pb-4 pt-5 text-center shadow-md">
                 <p className="text-xl font-bold text-[color:var(--store-accent)]">{EXAMPLE_NAME}</p>
                 <p className="mt-1 text-xs text-[color:var(--store-muted)]">Productos de calidad, a tu alcance.</p>
@@ -183,7 +198,7 @@ const StoreMockup: React.FC = () => (
 
 const STEPS = [
     { icon: <ChatIcon />, title: 'Escríbele al asistente', text: 'Abre el chat de SmartQR en WhatsApp, el mismo que ya usas todos los días.' },
-    { icon: <MicIcon />, title: 'Cuéntale qué vendes', text: 'Mándale audios, fotos de tus productos o mensajes con sus precios. Él arma tu catálogo.' },
+    { icon: <MicIcon />, title: 'Cuéntale qué vendes', text: 'Con nombres y precios, como te salga más fácil. Él arma tu catálogo.', inputs: true },
     { icon: <QrCodeIcon />, title: 'Imprime tu QR', text: 'Recibe tu código listo para pegar en el mostrador, la vitrina o cada mesa.' },
 ];
 
@@ -230,7 +245,7 @@ const LandingPage: React.FC = () => {
                     </nav>
                     <div className="flex items-center gap-2">
                         <Link to="/login" className={buttonClass('ghost', 'sm')}>Iniciar sesión</Link>
-                        <Link to="/register" className={`${buttonClass('primary', 'sm')} hidden sm:inline-flex`}>Crear cuenta</Link>
+                        <HeaderCTA />
                     </div>
                 </div>
             </header>
@@ -248,14 +263,14 @@ const LandingPage: React.FC = () => {
                             opacity={mode === 'dark' ? 0.55 : 0.35}
                         />
                     </div>
-                    <div className={`${sectionClass} grid items-center gap-14 pb-20 pt-12 sm:pt-16 lg:grid-cols-[1.1fr_1fr] lg:gap-10 lg:pb-28 lg:pt-20`}>
+                    <div className={`${sectionClass} grid items-center gap-14 pb-20 pt-12 sm:pt-16 lg:grid-cols-[1.2fr_1fr] lg:gap-10 lg:pb-28 lg:pt-20`}>
                         <Reveal distance={20} duration={0.6}>
                             <p className="inline-flex items-center gap-2 rounded-full border border-line bg-surface/70 px-3 py-1 text-xs font-medium text-fg-muted">
                                 <span className="h-1.5 w-1.5 rounded-full bg-success" aria-hidden="true" />
-                                Para almacenes, panaderías, cafés y pequeñas tiendas
+                                Para almacenes, cafés y pequeñas tiendas
                             </p>
-                            <h1 className="mt-5 text-4xl font-semibold leading-[1.08] tracking-tight text-fg sm:text-5xl lg:text-[3.5rem]">
-                                Tu tienda con QR, armada por WhatsApp
+                            <h1 className="mt-5 text-balance text-4xl font-semibold leading-[1.08] tracking-tight text-fg sm:text-5xl lg:text-[3.25rem]">
+                                Tu tienda con QR, <span className="whitespace-nowrap">armada por WhatsApp</span>
                             </h1>
                             <p className="mt-5 max-w-xl text-lg leading-relaxed text-fg-muted">
                                 Mándale al asistente audios, fotos y mensajes con tus productos y precios. Él arma tu catálogo y te deja el QR listo para imprimir. Tus clientes lo abren con la cámara, sin descargar nada.
@@ -287,12 +302,25 @@ const LandingPage: React.FC = () => {
                         <ol className="mt-12 grid gap-10 md:grid-cols-3 md:gap-8">
                             {STEPS.map((step, i) => (
                                 <li key={step.title} className="relative">
+                                    {i < STEPS.length - 1 && (
+                                        <span className="absolute left-14 right-4 top-5 hidden border-t border-dashed border-line md:block" aria-hidden="true" />
+                                    )}
                                     <div className="flex items-center gap-3">
                                         <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">{step.icon}</span>
-                                        <span className="text-sm font-medium tabular-nums text-fg-subtle">Paso {i + 1}</span>
+                                        <span className="relative bg-surface pr-3 text-sm font-medium tabular-nums text-fg-subtle">Paso {i + 1}</span>
                                     </div>
                                     <h3 className="mt-4 text-lg font-semibold text-fg">{step.title}</h3>
                                     <p className="mt-1.5 text-fg-muted">{step.text}</p>
+                                    {step.inputs && (
+                                        <ul className="mt-4 flex flex-wrap gap-2" aria-label="Lo que puedes enviar">
+                                            {[{ icon: <MicIcon />, label: 'Audios' }, { icon: <PhotoIcon />, label: 'Fotos' }, { icon: <ChatIcon />, label: 'Mensajes' }].map(input => (
+                                                <li key={input.label} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-canvas px-3 py-1 text-sm text-fg [&_svg]:h-4 [&_svg]:w-4">
+                                                    <span className="text-primary">{input.icon}</span>
+                                                    {input.label}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
                                 </li>
                             ))}
                         </ol>
@@ -335,7 +363,7 @@ const LandingPage: React.FC = () => {
                                     <tr className="border-b border-line bg-muted/50 text-fg-muted">
                                         <th scope="col" className="px-5 py-3 font-medium"><span className="sr-only">Situación</span></th>
                                         <th scope="col" className="px-5 py-3 font-medium">Carta impresa</th>
-                                        <th scope="col" className="px-5 py-3 font-semibold text-primary">Con SmartQR</th>
+                                        <th scope="col" className="bg-primary/[0.06] px-5 py-3 font-semibold text-primary">Con SmartQR</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-line">
@@ -343,7 +371,12 @@ const LandingPage: React.FC = () => {
                                         <tr key={row.topic}>
                                             <th scope="row" className="px-5 py-4 font-medium text-fg">{row.topic}</th>
                                             <td className="px-5 py-4 text-fg-muted">{row.printed}</td>
-                                            <td className="px-5 py-4 text-fg">{row.smart}</td>
+                                            <td className="bg-primary/[0.06] px-5 py-4 text-fg">
+                                                <span className="flex items-start gap-2">
+                                                    <span className="mt-0.5 flex-shrink-0 text-primary"><CheckIcon /></span>
+                                                    {row.smart}
+                                                </span>
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -391,7 +424,7 @@ const LandingPage: React.FC = () => {
                         <div className="divide-y divide-line border-y border-line">
                             {FAQS.map(faq => (
                                 <details key={faq.q} className="group">
-                                    <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-4 text-left font-medium text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 [&::-webkit-details-marker]:hidden">
+                                    <summary className="-mx-3 flex cursor-pointer list-none items-center justify-between gap-4 rounded-lg px-3 py-4 text-left font-medium text-fg transition-colors hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 [&::-webkit-details-marker]:hidden">
                                         {faq.q}
                                         <span className="flex-shrink-0 text-fg-subtle transition-transform group-open:rotate-45"><PlusIcon /></span>
                                     </summary>
