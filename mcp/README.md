@@ -97,6 +97,8 @@ Ejecuta [`supabase/whatsapp-agent.sql`](../supabase/whatsapp-agent.sql) en el SQ
 
 ### Conectar el agente
 
+El prompt de sistema del agente está en [`prompt-agente-whatsapp.md`](prompt-agente-whatsapp.md).
+
 URL del servidor MCP: `https://mcp.smartqr.cl/mcp`, transporte **Streamable HTTP**, con el header `Authorization: Bearer <MCP_TOKEN>`. El servidor no guarda sesiones: cada solicitud es independiente. En cada herramienta, el agente envía en `telefono` el número del remitente tal como lo entrega WhatsApp (`+56912345678`, `56912345678` o `56912345678@s.whatsapp.net`).
 
 ## Instalación local
