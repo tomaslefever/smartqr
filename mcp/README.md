@@ -31,6 +31,17 @@ Para pedidos como "se acabó el salmón, bájame todo lo que tiene salmón". Rev
 - **editar**: el término es solo una opción ("pollo, salmón o camarón", "tártaro de salmón o atún"). El producto se mantiene y se propone el texto sin esa opción ("pollo o camarón").
 - **preguntar**: el término es parte fija de una tabla, promoción o plato para compartir, o el nombre lo ofrece como opción pero la descripción lo usa como ingrediente. Lo decide la persona, entre las opciones que entrega.
 
+### Segunda opinión de Jev
+
+Si el servidor tiene `TYPESAFE_API_KEY`, cada caso pasa además por [Jev](https://docs.typesafe.ai), el modelo de decisiones de TypeSafe AI, siguiendo su patrón reglas → Jev → persona. Jev responde una pregunta cerrada por producto (bajarlo, quitar la opción, preguntar al dueño o no le afecta) con una confianza de 0 a 1, en paralelo y en menos de un segundo por producto:
+
+- Si coincide con las reglas, la decisión se mantiene y la confianza sube a alta (Jev ≥ 0,8).
+- Si las reglas dejaron el caso abierto ("preguntar") y Jev está muy seguro (≥ 0,9), Jev lo resuelve, siempre que las reglas tengan cómo ejecutarlo (para editar hace falta el texto reescrito).
+- Si no coinciden, o Jev tiene poca confianza (< 0,5), la persona decide: queda en "preguntar" con ambas propuestas, o con la de las reglas.
+- Si Jev falla, cada producto conserva la decisión de las reglas y la respuesta lo indica.
+
+Cada decisión dice su `fuente` (`reglas`, `reglas+jev` o `jev`) y trae la respuesta de Jev (decisión, confianza y probabilidades). Sin la clave, decide solo con reglas. Los umbrales siguen la [guía de confianza de TypeSafe](https://docs.typesafe.ai/confidence.md): bajar productos es una acción de alto impacto, así que Jev resuelve por su cuenta solo con confianza muy alta, y de todos modos nada se aplica sin confirmación.
+
 Con `accion: "no_disponible"` propone marcar como agotado en vez de ocultar (mejor si vuelve pronto). La respuesta trae `operaciones_recomendadas` listas para `aplicar_cambios`: el agente muestra la propuesta, pregunta por los casos dudosos y aplica solo lo confirmado.
 
 Las búsquedas no distinguen tildes ni mayúsculas, aceptan plurales ("camarón" encuentra "camarones") y solo encuentran palabras completas ("salmón" no encuentra "salmonete").
@@ -53,6 +64,8 @@ npm run build
 | `SMARTQR_PASSWORD` | Contraseña de esa cuenta |
 | `SMARTQR_URL` (opcional) | Sitio de SmartQR; por defecto `https://smartqr.cl`. De ahí lee la configuración pública de Supabase |
 | `SMARTQR_SUPABASE_URL` y `SMARTQR_SUPABASE_ANON_KEY` (opcionales) | Para no leerla del sitio |
+| `TYPESAFE_API_KEY` (opcional) | Clave de TypeSafe AI para la segunda opinión de Jev en `evaluar_retiro` |
+| `TYPESAFE_MODEL` (opcional) | Modelo de Jev; por defecto `jev-latest` |
 
 ### Claude Code
 
@@ -84,4 +97,4 @@ Cada negocio es una instancia del servidor con sus propias credenciales.
 ## Desarrollo
 
 - `npm run typecheck`: revisa los tipos.
-- `npm test`: compila y corre las pruebas del evaluador (`test/`), con productos reales de cartas cargadas en SmartQR.
+- `npm test`: compila y corre las pruebas del evaluador (`test/`), con productos reales de cartas cargadas en SmartQR y un Jev simulado para cada camino de la combinación.

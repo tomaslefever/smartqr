@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { evaluate, removeOption } from '../src/evaluate.js';
+import { evaluate, evaluateWithJev, removeOption } from '../src/evaluate.js';
+import type { JevAnswer, JevChoice } from '../src/jev.js';
 import { containsTerm } from '../src/text.js';
 import type { Menu, Product } from '../src/types.js';
 
@@ -98,7 +99,7 @@ test('hidden products are listed apart, unrelated ones are left out, the summary
     const evaluation = evaluate(menu, 'salmón');
     assert.deepEqual(evaluation.ya_ocultos.map(p => p.producto), ['Poema XVI']);
     assert.ok(!evaluation.decisiones.some(d => d.producto === 'Empanada de queso y mechada'));
-    assert.deepEqual(evaluation.resumen, { desactivar: 4, editar: 7, preguntar: 1, ya_ocultos: 1 });
+    assert.deepEqual(evaluation.resumen, { desactivar: 4, editar: 7, preguntar: 1, mantener: 0, ya_ocultos: 1 });
     assert.equal(evaluation.operaciones_recomendadas.length, 11);
 });
 
@@ -110,4 +111,55 @@ test('the "no disponible" action marks instead of hiding', () => {
 test('removeOption leaves texts without a choice alone', () => {
     assert.equal(removeOption('Salmón, camarón y pulpo', 'salmón'), null);
     assert.equal(removeOption('Pollo o vegetariano', 'salmón'), 'Pollo o vegetariano');
+});
+
+// Jev stand-in: answers per product name, so each path of the combination can be tested offline
+const fakeJev = (answers: Record<string, [JevChoice, number] | Error>) => async (p: Product): Promise<JevAnswer> => {
+    const answer = answers[p.name];
+    if (answer instanceof Error) throw answer;
+    const [choice, confidence] = answer ?? ['take_down', 0.3];
+    return { choice, confidence, probabilities: { [choice]: confidence } };
+};
+
+test('with Jev: agreement raises confidence, low confidence leaves the rules in charge', async () => {
+    const evaluation = await evaluateWithJev(menu, 'salmón', 'ocultar', fakeJev({
+        'Ceviche mixto': ['take_down', 0.95],
+        'Ball crabs 4 unidades': ['take_down', 0.3],
+    }));
+    const ceviche = byName(evaluation, 'Ceviche mixto');
+    assert.equal(ceviche.recomendacion, 'desactivar');
+    assert.equal(ceviche.confianza, 'alta');
+    assert.equal(ceviche.fuente, 'reglas+jev');
+    const crabs = byName(evaluation, 'Ball crabs 4 unidades');
+    assert.equal(crabs.recomendacion, 'editar');
+    assert.equal(crabs.fuente, 'reglas');
+});
+
+test('with Jev: a very sure Jev settles what the rules left open, if it can be carried out', async () => {
+    const settled = byName(await evaluateWithJev(menu, 'salmón', 'ocultar', fakeJev({ '100 piezas mixtas o hot': ['take_down', 0.95] })), '100 piezas mixtas o hot');
+    assert.equal(settled.recomendacion, 'desactivar');
+    assert.equal(settled.fuente, 'jev');
+    assert.deepEqual(settled.operaciones, [{ tipo: 'ocultar', id: settled.id }]);
+
+    // Removing the option needs a rewritten text, which the rules could not produce here: still asks
+    const open = byName(await evaluateWithJev(menu, 'salmón', 'ocultar', fakeJev({ '100 piezas mixtas o hot': ['remove_option', 0.95] })), '100 piezas mixtas o hot');
+    assert.equal(open.recomendacion, 'preguntar');
+
+    // Not sure enough to settle a take-down
+    const unsure = byName(await evaluateWithJev(menu, 'salmón', 'ocultar', fakeJev({ '100 piezas mixtas o hot': ['take_down', 0.85] })), '100 piezas mixtas o hot');
+    assert.equal(unsure.recomendacion, 'preguntar');
+});
+
+test('with Jev: a disagreement goes to a person with both proposals', async () => {
+    const d = byName(await evaluateWithJev(menu, 'salmón', 'ocultar', fakeJev({ 'Soneto I': ['unaffected', 0.7] })), 'Soneto I');
+    assert.equal(d.recomendacion, 'preguntar');
+    assert.deepEqual(d.opciones?.map(o => o.operaciones), [[{ tipo: 'ocultar', id: d.id }], []]);
+});
+
+test('with Jev: if Jev fails, the product keeps the rules decision and the failure is reported', async () => {
+    const evaluation = await evaluateWithJev(menu, 'salmón', 'ocultar', fakeJev({ 'Ceviche mixto': new Error('HTTP 529') }));
+    const d = byName(evaluation, 'Ceviche mixto');
+    assert.equal(d.recomendacion, 'desactivar');
+    assert.deepEqual(d.jev, { error: 'HTTP 529' });
+    assert.match(evaluation.jev ?? '', /falló en 1 de/);
 });

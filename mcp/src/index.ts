@@ -4,7 +4,8 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { evaluate, type Operation } from './evaluate.js';
+import { evaluate, evaluateWithJev, type Operation } from './evaluate.js';
+import { jevFromEnv } from './jev.js';
 import { configFromEnv, SmartQR } from './smartqr.js';
 import { containsTerm, normalize, snippet } from './text.js';
 import type { Product } from './types.js';
@@ -17,6 +18,8 @@ const INSTRUCTIONS = `Administra la carta de un negocio en SmartQR (la tienda p�
 
 const config = configFromEnv();
 const smartqr = new SmartQR(config);
+// Jev (TypeSafe AI) as a second opinion in evaluar_retiro, when TYPESAFE_API_KEY is set
+const jev = jevFromEnv();
 const server = new McpServer({ name: 'smartqr', version: '0.1.0' }, { instructions: INSTRUCTIONS });
 
 const status = (p: Product) => (!p.active ? 'oculto' : p.out_of_stock ? 'no disponible' : 'activo');
@@ -108,15 +111,22 @@ server.registerTool('evaluar_retiro', {
     description: `Para "bajar todo lo que tiene X" (se acabó un ingrediente, un producto, etc.). Revisa cada producto que menciona el término y propone, sin cambiar nada:
 - desactivar: X es el producto o un ingrediente del plato.
 - editar: X es solo una opción ("pollo, salmón o camarón"); se mantiene el producto y se quita esa opción del texto.
-- preguntar: X es parte fija de una tabla, promoción o plato para compartir; la persona decide, con las opciones listadas.
+- preguntar: X es parte fija de una tabla, promoción o plato para compartir, o las fuentes no coinciden; la persona decide, con las opciones listadas.
+- mantener: el texto nombra X pero el producto no lo usa (solo con Jev).
+Primero deciden reglas sobre el texto; si el servidor tiene Jev (TypeSafe AI) configurado, Jev revisa cada caso: cuando coincide sube la confianza, cuando las reglas dudaban y Jev está muy seguro lo resuelve, y cuando discrepan pregunta. Cada decisión indica su fuente.
 Devuelve operaciones_recomendadas listas para aplicar_cambios. Muestra la propuesta y aplica solo lo confirmado.`,
     inputSchema: {
         termino: z.string().min(1).describe('Ingrediente o palabra, por ejemplo "salmón"'),
         accion: z.enum(['ocultar', 'no_disponible']).default('ocultar')
             .describe('ocultar: sacarlo de la tienda. no_disponible: dejarlo visible marcado como agotado (mejor si vuelve pronto).'),
+        usar_jev: z.boolean().default(true).describe('Pedir la segunda opinión de Jev, si está configurado'),
     },
-    annotations: READ,
-}, run(async ({ termino, accion }) => evaluate(await smartqr.menu(), termino, accion)));
+    annotations: { ...READ, openWorldHint: true },
+}, run(async ({ termino, accion, usar_jev }) => {
+    const menu = await smartqr.menu();
+    if (jev && usar_jev) return evaluateWithJev(menu, termino, accion, jev);
+    return { ...evaluate(menu, termino, accion), jev: jev ? 'No usado en esta evaluación.' : 'No configurado (falta TYPESAFE_API_KEY): decidieron solo las reglas.' };
+}));
 
 const operation = z.object({
     tipo: z.enum(['ocultar', 'mostrar', 'marcar_no_disponible', 'marcar_disponible', 'editar']),

@@ -10,10 +10,14 @@
 // - Part of a group: the product is a platter, promotion or dish for sharing ("Tabla", "30 piezas",
 //   "para 2 personas") and the term is a fixed part of it. Taking down the whole group is a business
 //   decision, so the evaluator asks instead of deciding.
+//
+// With a TypeSafe API key, evaluateWithJev() adds Jev as a second opinion on each of those decisions,
+// following TypeSafe's rules → Jev → person pattern (see combine()).
+import type { JevAnswer, JevChoice, JevDecide } from './jev.js';
 import { normalize, snippet, termRegex } from './text.js';
 import type { Menu, Product } from './types.js';
 
-export type Recommendation = 'desactivar' | 'editar' | 'preguntar';
+export type Recommendation = 'desactivar' | 'editar' | 'preguntar' | 'mantener';
 export type TakeDown = 'ocultar' | 'no_disponible';
 
 export interface Operation {
@@ -34,12 +38,16 @@ export interface Decision {
     // What applying the recommendation does; for "preguntar", the options to choose from
     operaciones: Operation[];
     opciones?: { opcion: string; operaciones: Operation[] }[];
+    // Who decided: the rules alone, rules and Jev agreeing, or Jev settling a case the rules left open
+    fuente?: 'reglas' | 'reglas+jev' | 'jev';
+    jev?: { decision: Recommendation; confianza: number; probabilidades: Record<string, number> } | { error: string };
 }
 
 export interface Evaluation {
     termino: string;
     accion: TakeDown;
-    resumen: { desactivar: number; editar: number; preguntar: number; ya_ocultos: number };
+    resumen: { desactivar: number; editar: number; preguntar: number; mantener: number; ya_ocultos: number };
+    jev?: string;
     decisiones: Decision[];
     ya_ocultos: { id: number; producto: string }[];
     // Operations of every "desactivar" and "editar" decision, ready for aplicar_cambios
@@ -232,9 +240,101 @@ export const evaluate = (menu: Menu, term: string, accion: TakeDown = 'ocultar')
     return {
         termino: term,
         accion,
-        resumen: { desactivar: count('desactivar'), editar: count('editar'), preguntar: count('preguntar'), ya_ocultos: ya_ocultos.length },
-        decisiones,
+        resumen: { desactivar: count('desactivar'), editar: count('editar'), preguntar: count('preguntar'), mantener: count('mantener'), ya_ocultos: ya_ocultos.length },
+        decisiones: decisiones.map(d => ({ ...d, fuente: 'reglas' })),
         ya_ocultos,
+        operaciones_recomendadas: decisiones.filter(d => d.recomendacion !== 'preguntar').flatMap(d => d.operaciones),
+    };
+};
+
+const FROM_JEV: Record<JevChoice, Recommendation> = {
+    take_down: 'desactivar', remove_option: 'editar', ask_owner: 'preguntar', unaffected: 'mantener',
+};
+
+// Thresholds from TypeSafe's confidence guide (https://docs.typesafe.ai/confidence.md): below LOW Jev
+// is not trusted; taking products down is high stakes, so Jev only settles open cases above SETTLE.
+const LOW = 0.5;
+const AGREE = 0.8;
+const SETTLE = 0.9;
+
+// The edit the rules worked out for this product, if any (a direct "editar" or an option of "preguntar")
+const editOf = (decision: Decision) =>
+    decision.recomendacion === 'editar'
+        ? decision.operaciones
+        : decision.opciones?.find(o => o.operaciones.some(op => op.tipo === 'editar'))?.operaciones ?? null;
+
+// Merges the rules' decision with Jev's answer:
+// - Jev unsure (confidence < LOW): the rules' decision stands, with medium confidence.
+// - Both agree: the decision stands, with high confidence if Jev is confident (≥ AGREE).
+// - The rules asked and Jev is very sure (≥ SETTLE): Jev settles it, if the rules have the operations
+//   to carry it out (an edit needs the rewritten text).
+// - Otherwise they disagree: a person decides, with both proposals as options.
+export const combine = (decision: Decision, answer: JevAnswer, takeDown: Operation[]): Decision => {
+    const jevRecommendation = FROM_JEV[answer.choice];
+    const jev = { decision: jevRecommendation, confianza: answer.confidence, probabilidades: answer.probabilities };
+    const opsFor = (recommendation: Recommendation): Operation[] | null =>
+        recommendation === 'desactivar' ? takeDown
+        : recommendation === 'editar' ? editOf(decision)
+        : recommendation === 'mantener' ? []
+        : null;
+
+    if (answer.confidence < LOW) {
+        return { ...decision, confianza: 'media', fuente: 'reglas', jev };
+    }
+    if (jevRecommendation === decision.recomendacion) {
+        return { ...decision, confianza: answer.confidence >= AGREE ? 'alta' : 'media', fuente: 'reglas+jev', jev };
+    }
+    const settled = decision.recomendacion === 'preguntar' && answer.confidence >= SETTLE ? opsFor(jevRecommendation) : null;
+    if (settled) {
+        return {
+            ...decision, recomendacion: jevRecommendation, confianza: 'media', fuente: 'jev', jev,
+            motivo: `${decision.motivo} Jev lo resolvió con ${Math.round(answer.confidence * 100)} % de confianza: ${jevRecommendation}.`,
+            operaciones: settled,
+            opciones: undefined,
+        };
+    }
+    const rulesOption = { opcion: `Según las reglas: ${decision.recomendacion}`, operaciones: decision.operaciones };
+    const jevOps = opsFor(jevRecommendation);
+    const options = decision.recomendacion === 'preguntar'
+        ? decision.opciones ?? []
+        : [rulesOption, ...(jevOps ? [{ opcion: `Según Jev: ${jevRecommendation}`, operaciones: jevOps }] : [])];
+    return {
+        ...decision, recomendacion: 'preguntar', confianza: 'media', fuente: 'reglas+jev', jev,
+        motivo: `Las reglas proponen "${decision.recomendacion}" y Jev "${jevRecommendation}" (${Math.round(answer.confidence * 100)} %). ${decision.motivo}`,
+        operaciones: [],
+        opciones: options,
+    };
+};
+
+// Runs Jev on every decision of the rules, a few at a time, and merges the answers. If Jev fails for a
+// product, that product keeps the rules' decision and the error is reported.
+export const evaluateWithJev = async (menu: Menu, term: string, accion: TakeDown, decide: JevDecide, concurrency = 6): Promise<Evaluation> => {
+    const base = evaluate(menu, term, accion);
+    const byId = new Map(menu.products.map(p => [p.id, p]));
+    const decisiones = [...base.decisiones];
+    let next = 0;
+    let failures = 0;
+    const worker = async () => {
+        while (next < decisiones.length) {
+            const index = next++;
+            const decision = decisiones[index]!;
+            const product = byId.get(decision.id)!;
+            try {
+                decisiones[index] = combine(decision, await decide(product, term), [takeDownOperation(product.id, accion)]);
+            } catch (error) {
+                failures++;
+                decisiones[index] = { ...decision, jev: { error: error instanceof Error ? error.message : String(error) } };
+            }
+        }
+    };
+    await Promise.all(Array.from({ length: Math.min(concurrency, decisiones.length) }, worker));
+
+    const count = (recommendation: Recommendation) => decisiones.filter(d => d.recomendacion === recommendation).length;
+    return {
+        ...base,
+        jev: failures ? `Jev falló en ${failures} de ${decisiones.length} productos; esos quedan con la decisión de las reglas.` : `Jev revisó ${decisiones.length} productos.`,
+        resumen: { desactivar: count('desactivar'), editar: count('editar'), preguntar: count('preguntar'), mantener: count('mantener'), ya_ocultos: base.ya_ocultos.length },
+        decisiones,
         operaciones_recomendadas: decisiones.filter(d => d.recomendacion !== 'preguntar').flatMap(d => d.operaciones),
     };
 };
