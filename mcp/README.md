@@ -13,7 +13,7 @@ Entra con la cuenta del negocio, igual que el panel. Supabase solo le deja leer 
 | `buscar_productos` | Busca en nombre, descripción y categoría, sin importar tildes ni plurales | No |
 | `evaluar_retiro` | Propuesta para "bajar todo lo que tiene X" (ver abajo) | No |
 | `aplicar_cambios` | Aplica una lista de operaciones confirmadas: ocultar, mostrar, marcar o desmarcar "No disponible", editar | Sí |
-| `agregar_producto` | Agrega un producto al final de su categoría | Sí |
+| `agregar_producto` | Agrega un producto al inicio de su categoría | Sí |
 | `editar_producto` | Cambia nombre, descripción, precio, unidad o categoría | Sí |
 | `cambiar_estado` | Oculta, muestra o marca "No disponible" uno o más productos | Sí |
 | `cambiar_precios` | Precios uno a uno o en bloque por porcentaje, con `simular` para previsualizar | Sí |

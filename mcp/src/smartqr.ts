@@ -157,12 +157,20 @@ export class SmartQR {
         const inCategory = products.filter(p => p.category_id === category.id);
         const stray = productIds.filter(id => !inCategory.some(p => p.id === id));
         if (stray.length) throw new NotFoundError(`Estos productos no están en "${category.name}": ${stray.join(', ')}`);
-        const newOrder = [...new Set([...productIds, ...inCategory.map(p => p.id)])];
+        await this.saveOrder(products, category.id, productIds);
+        return (await this.menu()).products.filter(p => p.category_id === category.id).map(p => ({ id: p.id, nombre: p.name }));
+    }
+
+    // Renumbers the whole menu with the given products first among those of categoryId (null = the
+    // products without a category), keeping everything else in place
+    private async saveOrder(products: Product[], categoryId: number | null, first: number[]) {
+        const { client } = await this.session();
+        const inGroup = products.filter(p => p.category_id === categoryId);
+        const newOrder = [...new Set([...first, ...inGroup.map(p => p.id)])];
         let next = 0;
-        const ids = products.map(p => (p.category_id === category.id ? newOrder[next++] : p.id) as number);
+        const ids = products.map(p => (p.category_id === categoryId ? newOrder[next++] : p.id) as number);
         const { error } = await client.rpc('reorder_products', { product_ids: ids });
         if (error) throw error;
-        return (await this.menu()).products.filter(p => p.category_id === category.id).map(p => ({ id: p.id, nombre: p.name }));
     }
 
     private async categoryFields(name: string | number | null | undefined) {
@@ -175,7 +183,7 @@ export class SmartQR {
     async addProduct(input: ProductInput): Promise<Product> {
         const { client, userId } = await this.session();
         const { products } = await this.menu();
-        // New products go to the end of the menu, as in the panel
+        // Inserted at the end of the menu, then moved to the start of its category (below)
         const position = Math.max(0, ...products.map(p => p.position ?? 0)) + 1;
         const { data, error } = await client.from('products').insert([{
             user_id: userId,
@@ -186,10 +194,14 @@ export class SmartQR {
             active: input.activo ?? true,
             out_of_stock: false, track_stock: false, stock: 0, image_url: '',
             position,
-            ...(await this.categoryFields(input.categoria)),
+            // Without a category the panel saves category = '' (the column does not allow null)
+            ...(await this.categoryFields(input.categoria ?? null)),
         }]).select(PRODUCT_COLUMNS).single();
         if (error) throw error;
-        return data as Product;
+        const product = data as Product;
+        // New products go first in their category, where the business sees them right away
+        await this.saveOrder((await this.menu()).products, product.category_id, [product.id]);
+        return this.product(product.id);
     }
 
     async updateProduct(id: number, patch: ProductPatch): Promise<Product> {

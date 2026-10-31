@@ -164,7 +164,7 @@ server.registerTool('aplicar_cambios', {
 
 server.registerTool('agregar_producto', {
     title: 'Agregar producto',
-    description: 'Agrega un producto al final de su categoría.',
+    description: 'Agrega un producto al inicio de su categoría (o de los productos sin categoría).',
     inputSchema: {
         nombre: z.string().min(1),
         descripcion: z.string().optional(),
