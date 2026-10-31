@@ -9,6 +9,8 @@ import { PageHeader } from './AppShell.tsx';
 import { DeleteIcon, GripIcon, PlusIcon, TagIcon } from './Icons.tsx';
 import { buttonClass, cardClass, errorBoxClass, iconButtonClass, inputClass } from './ui.ts';
 import { Reveal } from './effects.tsx';
+import Switch from './Switch.tsx';
+import { CategoryVisibilityUnavailable, isCategoryShown } from '../services/supabaseService.ts';
 
 const NAME_MAX_LENGTH = 60;
 
@@ -17,7 +19,9 @@ const CategoryRow: React.FC<{
     productCount: number;
     onRename: (category: Category, name: string) => Promise<boolean>;
     onDelete: (category: Category) => void;
-}> = ({ category, productCount, onRename, onDelete }) => {
+    onToggleActive: (category: Category) => void;
+}> = ({ category, productCount, onRename, onDelete, onToggleActive }) => {
+    const shown = isCategoryShown(category);
     const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: category.id });
     const [editing, setEditing] = useState(false);
     const [name, setName] = useState(category.name);
@@ -51,7 +55,7 @@ const CategoryRow: React.FC<{
             >
                 <GripIcon />
             </button>
-            <div className="min-w-0 flex-1">
+            <div className={`flex min-w-0 flex-1 items-center gap-2 transition-opacity ${shown ? '' : 'opacity-50'}`}>
                 {editing ? (
                     <input
                         autoFocus
@@ -67,13 +71,17 @@ const CategoryRow: React.FC<{
                         className={`${inputClass} h-9`}
                     />
                 ) : (
-                    <button type="button" onClick={() => setEditing(true)} className="w-full truncate rounded-md px-2 py-1.5 text-left text-sm font-medium text-fg hover:bg-muted" title="Clic para renombrar">
+                    <button type="button" onClick={() => setEditing(true)} className="min-w-0 flex-1 truncate rounded-md px-2 py-1.5 text-left text-sm font-medium text-fg hover:bg-muted" title="Clic para renombrar">
                         {category.name}
                     </button>
                 )}
+                {!shown && !editing && <span className="whitespace-nowrap rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-fg-muted">Oculta</span>}
             </div>
             <span className="whitespace-nowrap rounded-full bg-muted px-2 py-0.5 text-xs text-fg-muted tabular-nums">
                 {productCount} {productCount === 1 ? 'producto' : 'productos'}
+            </span>
+            <span title={shown ? 'Se ve en la tienda' : 'Oculta en la tienda, con todos sus productos'}>
+                <Switch checked={shown} onChange={() => onToggleActive(category)} label={`${shown ? 'Ocultar' : 'Mostrar'} ${category.name}`} />
             </span>
             <button type="button" onClick={() => onDelete(category)} className={`${iconButtonClass} hover:!bg-danger/10 hover:!text-danger`} title="Eliminar" aria-label={`Eliminar ${category.name}`}>
                 <DeleteIcon />
@@ -126,6 +134,21 @@ const CategoriesPage: React.FC = () => {
         }
         setCategories(prev => [...prev, created]);
         setNewName('');
+    };
+
+    // Optimistic, like the products' switch: the row changes at once and goes back if saving fails
+    const handleToggleActive = async (category: Category) => {
+        const active = !isCategoryShown(category);
+        setError(null);
+        setCategories(prev => prev.map(c => (c.id === category.id ? { ...c, active } : c)));
+        try {
+            await supabaseService.setCategoryActive(category.id, active);
+        } catch (e) {
+            setCategories(prev => prev.map(c => (c.id === category.id ? { ...c, active: !active } : c)));
+            setError(e instanceof CategoryVisibilityUnavailable
+                ? 'Para ocultar categorías hay que ejecutar supabase/categories-active.sql en Supabase.'
+                : 'No se pudo cambiar la categoría. Inténtalo de nuevo.');
+        }
     };
 
     const handleRename = async (category: Category, name: string) => {
@@ -187,7 +210,7 @@ const CategoriesPage: React.FC = () => {
 
     return (
         <>
-            <PageHeader title="Categorías" description="Organiza tu carta. Tu tienda muestra las categorías en este orden." />
+            <PageHeader title="Categorías" description="Organiza tu carta. Tu tienda muestra las categorías en este orden; ocultar una saca de la tienda todos sus productos." />
 
             <Reveal stagger={0.08} delay={0.1} className="max-w-2xl space-y-4">
                 <form onSubmit={handleCreate} className="flex gap-2">
@@ -223,7 +246,7 @@ const CategoriesPage: React.FC = () => {
                             <SortableContext items={categories.map(c => c.id)} strategy={verticalListSortingStrategy}>
                                 <ul>
                                     {categories.map(category => (
-                                        <CategoryRow key={category.id} category={category} productCount={countFor(category)} onRename={handleRename} onDelete={handleDelete} />
+                                        <CategoryRow key={category.id} category={category} productCount={countFor(category)} onRename={handleRename} onDelete={handleDelete} onToggleActive={handleToggleActive} />
                                     ))}
                                 </ul>
                             </SortableContext>

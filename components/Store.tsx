@@ -107,7 +107,9 @@ const Store: React.FC = () => {
                 // Fetched separately (not embedded) so the store still loads if the themes table is missing
                 const themeData = profileData?.theme_id ? await supabaseService.getTheme(profileData.theme_id) : null;
                 // Rows from before supabase/products-active.sql have no `active` value and count as active
-                setProducts(productsData.filter(p => p.active !== false));
+                // A hidden category takes all its products out of the store
+                const hiddenCategories = new Set(categoriesData.filter(c => !supabaseService.isCategoryShown(c)).map(c => c.id));
+                setProducts(productsData.filter(p => p.active !== false && !(p.category_id != null && hiddenCategories.has(p.category_id))));
                 setProfile(profileData);
                 setTheme(themeData);
             } catch (error) {

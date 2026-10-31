@@ -93,7 +93,9 @@ const ProductRow: React.FC<{
     onDelete: (product: Product) => void;
     onToggleActive: (product: Product) => void;
     onUploadImage: (product: Product, file: File) => void;
-}> = ({ product, uploading, onEdit, onDelete, onToggleActive, onUploadImage }) => {
+    // Its category is hidden, so the store does not show it even if it is active
+    categoryHidden?: boolean;
+}> = ({ product, uploading, onEdit, onDelete, onToggleActive, onUploadImage, categoryHidden = false }) => {
     const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: product.id });
 
     return (
@@ -128,6 +130,7 @@ const ProductRow: React.FC<{
                                 {product.name}
                             </button>
                             {!isActive(product) && <Badge>Desactivado</Badge>}
+                            {categoryHidden && <Badge>Categoría oculta</Badge>}
                             {product.out_of_stock && <Badge>No disponible</Badge>}
                         </div>
                         {product.category && <p className="truncate text-xs text-fg-subtle">{product.category}</p>}
@@ -330,6 +333,8 @@ const ProductsPage: React.FC = () => {
         }
     };
 
+    const hiddenCategoryIds = useMemo(() => new Set(categories.filter(c => !supabaseService.isCategoryShown(c)).map(c => c.id)), [categories]);
+
     const visibleProducts = useMemo(() => {
         const term = search.trim().toLowerCase();
         const status = STATUS_FILTERS[statusFilter];
@@ -426,7 +431,7 @@ const ProductsPage: React.FC = () => {
                                         <SkeletonRows />
                                     ) : visibleProducts.length > 0 ? (
                                         visibleProducts.map(p => (
-                                            <ProductRow key={p.id} product={p} uploading={uploadingIds.has(p.id)} onEdit={handleOpenProductModal} onDelete={handleDeleteFromList} onToggleActive={handleToggleActive} onUploadImage={handleUploadImage} />
+                                            <ProductRow key={p.id} product={p} uploading={uploadingIds.has(p.id)} onEdit={handleOpenProductModal} onDelete={handleDeleteFromList} onToggleActive={handleToggleActive} onUploadImage={handleUploadImage} categoryHidden={hiddenCategoryIds.has(p.category_id ?? -1)} />
                                         ))
                                     ) : (
                                         <tr>

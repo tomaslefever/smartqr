@@ -165,6 +165,21 @@ export const getCategoryList = async (): Promise<Category[]> => {
 
 export const getCategoriesByUserId = async (userId: string): Promise<Category[]> => fetchCategories(userId);
 
+// Categories are shown unless explicitly hidden (rows from before supabase/categories-active.sql have no value)
+export const isCategoryShown = (category: Pick<Category, 'active'> | undefined | null) => category?.active !== false;
+
+// Thrown when supabase/categories-active.sql has not run, so the page can say so
+export class CategoryVisibilityUnavailable extends Error {}
+
+// Hides or shows a whole category in the public store; its products keep their own state
+export const setCategoryActive = async (id: number, active: boolean): Promise<Category> => {
+    if (!supabase) throw new Error('Supabase no está configurado.');
+    const { data, error } = await supabase.from('categories').update({ active }).eq('id', id).select().single();
+    if (isMissingSchema(error)) throw new CategoryVisibilityUnavailable();
+    if (error) throw new Error(error.message);
+    return data as Category;
+};
+
 // New categories go to the end of the menu
 export const createCategory = async (name: string): Promise<Category | null> => {
     if (!supabase) return null;

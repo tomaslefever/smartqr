@@ -5,6 +5,9 @@ export interface Category {
   name: string;
   // Order in the menu (1 = first)
   position: number | null;
+  // When false neither the category nor its products appear in the public store; missing before
+  // supabase/categories-active.sql, which counts as shown
+  active?: boolean;
   created_at: string;
 }
 

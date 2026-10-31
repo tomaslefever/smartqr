@@ -84,7 +84,9 @@ const HomePage: React.FC = () => {
     }, []);
 
     const stats = useMemo(() => {
-        const visible = products.filter(isActive);
+        // Products in a hidden category are not in the store either
+        const hiddenCategories = new Set(categories.filter(c => !supabaseService.isCategoryShown(c)).map(c => c.id));
+        const visible = products.filter(p => isActive(p) && !hiddenCategories.has(p.category_id ?? -1));
         return {
             total: products.length,
             visible: visible.length,
@@ -92,7 +94,7 @@ const HomePage: React.FC = () => {
             unavailable: products.filter(p => p.out_of_stock).length,
             withPhoto: products.filter(p => p.image_url).length,
         };
-    }, [products]);
+    }, [products, categories]);
 
     // Things worth fixing, each linking to the product list filtered to the affected products
     const insights = useMemo(() => {
