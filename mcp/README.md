@@ -13,7 +13,8 @@ Entra con la cuenta del negocio, igual que el panel. Supabase solo le deja leer 
 | `buscar_productos` | Busca en nombre, descripción y categoría, sin importar tildes ni plurales | No |
 | `evaluar_retiro` | Propuesta para "bajar todo lo que tiene X" (ver abajo) | No |
 | `aplicar_cambios` | Aplica una lista de operaciones confirmadas: ocultar, mostrar, marcar o desmarcar "No disponible", editar | Sí |
-| `agregar_producto` | Agrega un producto al inicio de su categoría | Sí |
+| `sugerir_categoria` | Sugiere en qué categoría va un producto nuevo (ver abajo) | No |
+| `agregar_producto` | Agrega un producto al inicio de su categoría; sin categoría no crea nada y sugiere (ver abajo) | Sí |
 | `editar_producto` | Cambia nombre, descripción, precio, unidad o categoría | Sí |
 | `cambiar_estado` | Oculta, muestra o marca "No disponible" uno o más productos | Sí |
 | `cambiar_precios` | Precios uno a uno o en bloque por porcentaje, con `simular` para previsualizar | Sí |
@@ -46,6 +47,12 @@ Con `accion: "no_disponible"` propone marcar como agotado en vez de ocultar (mej
 
 Las búsquedas no distinguen tildes ni mayúsculas, aceptan plurales ("camarón" encuentra "camarones") y solo encuentran palabras completas ("salmón" no encuentra "salmonete").
 
+## Categoría de un producto nuevo
+
+Si se pide agregar un producto sin decir su categoría, `agregar_producto` no lo crea: devuelve las categorías más probables y una pregunta lista para la persona. El agente pregunta y vuelve a llamar con la elegida, o con `sin_categoria: true` si la persona lo quiere así.
+
+Las sugerencias salen de la propia carta: palabras en común con el nombre de cada categoría y con sus productos. La primera palabra del nombre pesa más, porque dice qué plato es ("**Lomo** a lo pobre" va en Carnes y no en el acompañamiento "A lo pobre"); la descripción pesa poco, porque lista ingredientes que muchas categorías comparten; y las palabras que aparecen en todas partes cuentan menos. Si ninguna categoría destaca (empate o coincidencia débil), pregunta sin sugerir una por defecto. Con `TYPESAFE_API_KEY`, Jev también elige entre las categorías (o "ninguna"): si está seguro (≥ 0,6), su elección va primero.
+
 ## Instalación
 
 Requiere Node.js 20 o superior.
@@ -64,7 +71,7 @@ npm run build
 | `SMARTQR_PASSWORD` | Contraseña de esa cuenta |
 | `SMARTQR_URL` (opcional) | Sitio de SmartQR; por defecto `https://smartqr.cl`. De ahí lee la configuración pública de Supabase |
 | `SMARTQR_SUPABASE_URL` y `SMARTQR_SUPABASE_ANON_KEY` (opcionales) | Para no leerla del sitio |
-| `TYPESAFE_API_KEY` (opcional) | Clave de TypeSafe AI para la segunda opinión de Jev en `evaluar_retiro` |
+| `TYPESAFE_API_KEY` (opcional) | Clave de TypeSafe AI para la segunda opinión de Jev en `evaluar_retiro` y las sugerencias de categoría |
 | `TYPESAFE_MODEL` (opcional) | Modelo de Jev; por defecto `jev-latest` |
 
 ### Claude Code

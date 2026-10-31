@@ -5,7 +5,8 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { evaluate, evaluateWithJev, type Operation } from './evaluate.js';
-import { jevFromEnv } from './jev.js';
+import { adviseCategory } from './categorize.js';
+import { jevCategoryFromEnv, jevFromEnv } from './jev.js';
 import { configFromEnv, SmartQR } from './smartqr.js';
 import { containsTerm, normalize, snippet } from './text.js';
 import type { Product } from './types.js';
@@ -14,12 +15,14 @@ const INSTRUCTIONS = `Administra la carta de un negocio en SmartQR (la tienda p�
 - Antes de cambiar algo, ubica los productos con buscar_productos o ver_carta: las herramientas que escriben usan el id del producto.
 - Para "bajar", "sacar" o "desactivar todo lo que tiene X" usa evaluar_retiro: devuelve una propuesta (qué ocultar, qué editar y qué preguntar). Muéstrasela a la persona, pregunta por los casos "preguntar" y aplica solo lo que confirme con aplicar_cambios.
 - Ocultar (activo = false) saca el producto de la tienda pero lo deja en el panel; "No disponible" lo deja visible marcado como agotado. Nada se borra.
-- Los precios son en pesos chilenos, enteros, sin puntos.`;
+- Los precios son en pesos chilenos, enteros, sin puntos.
+- Si la persona no dice en qué categoría va un producto nuevo, no lo inventes: agregar_producto devuelve sugerencias sin crear nada. Pregúntale mostrándole las sugerencias y vuelve a llamar con la categoría elegida (o con sin_categoria = true si así lo quiere).`;
 
 const config = configFromEnv();
 const smartqr = new SmartQR(config);
 // Jev (TypeSafe AI) as a second opinion in evaluar_retiro, when TYPESAFE_API_KEY is set
 const jev = jevFromEnv();
+const jevCategory = jevCategoryFromEnv();
 const server = new McpServer({ name: 'smartqr', version: '0.1.0' }, { instructions: INSTRUCTIONS });
 
 const status = (p: Product) => (!p.active ? 'oculto' : p.out_of_stock ? 'no disponible' : 'activo');
@@ -162,9 +165,19 @@ server.registerTool('aplicar_cambios', {
     return { aplicadas: results.filter(r => r.ok).length, fallidas: results.filter(r => !r.ok).length, resultados: results };
 }));
 
+server.registerTool('sugerir_categoria', {
+    title: 'Sugerir categoría',
+    description: 'Sugiere en qué categoría de la carta va un producto nuevo, según los productos que ya hay en cada una (y Jev, si está configurado). No crea nada: sirve para preguntarle a la persona con opciones.',
+    inputSchema: { nombre: z.string().min(1), descripcion: z.string().optional() },
+    annotations: READ,
+}, run(async ({ nombre, descripcion }) => {
+    const menu = await smartqr.menu();
+    return { ...(await adviseCategory(menu, { nombre, descripcion }, jevCategory)), categorias: menu.categories.map(c => c.name) };
+}));
+
 server.registerTool('agregar_producto', {
     title: 'Agregar producto',
-    description: 'Agrega un producto al inicio de su categoría (o de los productos sin categoría).',
+    description: `Agrega un producto al inicio de su categoría. Si no se indica categoría, no crea nada: devuelve las categorías sugeridas para que le preguntes a la persona, y luego vuelves a llamar con la elegida. Para crearlo sin categoría a propósito, usa sin_categoria = true.`,
     inputSchema: {
         nombre: z.string().min(1),
         descripcion: z.string().optional(),
@@ -172,9 +185,26 @@ server.registerTool('agregar_producto', {
         unidad: z.enum(['unit', 'kg']).optional().describe('unit = por unidad (por defecto), kg = precio por kilo'),
         categoria: category.optional().describe('Nombre o id de una categoría existente'),
         activo: z.boolean().optional().describe('false para crearlo oculto'),
+        sin_categoria: z.boolean().optional().describe('true para crearlo sin categoría, solo si la persona lo pidió'),
     },
     annotations: { ...WRITE, idempotentHint: false },
-}, run(async (input) => view(await smartqr.addProduct(input))));
+}, run(async ({ sin_categoria, ...input }) => {
+    if (input.categoria === undefined && !sin_categoria) {
+        const menu = await smartqr.menu();
+        const advice = await adviseCategory(menu, input, jevCategory);
+        const top = advice.preguntar_sin_sugerencia ? null : advice.sugerencias[0];
+        return {
+            creado: false,
+            falta_categoria: true,
+            pregunta: top
+                ? `¿Agrego "${input.nombre}" en "${top.categoria}"? También podría ir en: ${advice.sugerencias.slice(1).map(s => s.categoria).join(', ') || 'otra categoría de la carta'}.`
+                : `¿En qué categoría va "${input.nombre}"? ${menu.categories.length ? `Categorías: ${menu.categories.map(c => c.name).join(', ')}.` : 'La carta aún no tiene categorías: puedo crear una o dejarlo sin categoría.'}`,
+            ...advice,
+            categorias: menu.categories.map(c => c.name),
+        };
+    }
+    return { creado: true, ...view(await smartqr.addProduct(input)) };
+}));
 
 server.registerTool('editar_producto', {
     title: 'Editar producto',
