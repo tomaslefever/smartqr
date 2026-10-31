@@ -52,19 +52,36 @@ export interface ProductPatch {
     categoria?: string | number | null;
 }
 
+// How this SmartQR reaches the business's rows:
+// - owner: signs in with the business's own email and password; row level security does the rest.
+// - service: a client with the service role key (the WhatsApp agent's server), acting for userId. It
+//   bypasses row level security, so every query here filters by userId itself.
+export type Access =
+    | { kind: 'owner'; config: Config }
+    | { kind: 'service'; client: SupabaseClient; userId: string; siteUrl: string };
+
 export class SmartQR {
     private client: SupabaseClient | null = null;
     private userId = '';
-    constructor(private readonly config: Config) {}
+    private readonly siteUrl: string;
+    constructor(private readonly access: Access) {
+        this.siteUrl = access.kind === 'owner' ? access.config.siteUrl : access.siteUrl;
+        if (access.kind === 'service') {
+            this.client = access.client;
+            this.userId = access.userId;
+        }
+    }
 
     // Signs in lazily, on the first tool call, so the server starts even without network
     private async session() {
         if (this.client) return { client: this.client, userId: this.userId };
-        let { supabaseUrl, supabaseAnonKey } = this.config;
+        if (this.access.kind !== 'owner') throw new Error('Sin acceso a Supabase.');
+        const config = this.access.config;
+        let { supabaseUrl, supabaseAnonKey } = config;
         if (!supabaseUrl || !supabaseAnonKey) {
             // The same public values the site gives every visitor in /config.js
-            const response = await fetch(`${this.config.siteUrl}/config.js`);
-            if (!response.ok) throw new Error(`No se pudo leer la configuración de ${this.config.siteUrl} (HTTP ${response.status}).`);
+            const response = await fetch(`${config.siteUrl}/config.js`);
+            if (!response.ok) throw new Error(`No se pudo leer la configuración de ${config.siteUrl} (HTTP ${response.status}).`);
             const js = await response.text();
             const runtime = JSON.parse(js.slice(js.indexOf('{'), js.lastIndexOf('}') + 1)) as { supabaseUrl?: string; supabaseAnonKey?: string };
             supabaseUrl = runtime.supabaseUrl;
@@ -72,7 +89,7 @@ export class SmartQR {
         }
         if (!supabaseUrl || !supabaseAnonKey) throw new Error('El sitio no entregó la configuración de Supabase.');
         const client = createClient(supabaseUrl, supabaseAnonKey, { auth: { persistSession: false, autoRefreshToken: true } });
-        const { data, error } = await client.auth.signInWithPassword({ email: this.config.email, password: this.config.password });
+        const { data, error } = await client.auth.signInWithPassword({ email: config.email, password: config.password });
         if (error || !data.user) throw new Error(`No se pudo iniciar sesión en SmartQR: ${error?.message ?? 'sin usuario'}`);
         this.client = client;
         this.userId = data.user.id;
@@ -80,7 +97,17 @@ export class SmartQR {
     }
 
     storeUrl() {
-        return `${this.config.siteUrl}/#/store/${this.userId}`;
+        return `${this.siteUrl}/#/store/${this.userId}`;
+    }
+
+    // reorder_products and reorder_categories act on auth.uid(), which the service role does not have;
+    // their *_for_owner versions (supabase/whatsapp-agent.sql) take the account instead
+    private async reorder(kind: 'products' | 'categories', ids: number[]) {
+        const { client, userId } = await this.session();
+        const { error } = this.access.kind === 'service'
+            ? await client.rpc(`reorder_${kind}_for_owner`, { owner: userId, [kind === 'products' ? 'product_ids' : 'category_ids']: ids })
+            : await client.rpc(`reorder_${kind}`, { [kind === 'products' ? 'product_ids' : 'category_ids']: ids });
+        if (error) throw error;
     }
 
     async profile() {
@@ -127,31 +154,28 @@ export class SmartQR {
     }
 
     async renameCategory(nameOrId: string | number, newName: string): Promise<Category> {
-        const { client } = await this.session();
+        const { client, userId } = await this.session();
         const category = await this.findCategory(nameOrId);
-        const { data, error } = await client.from('categories').update({ name: newName.trim() }).eq('id', category.id).select('id, name, position').single();
+        const { data, error } = await client.from('categories').update({ name: newName.trim() }).eq('id', category.id).eq('user_id', userId).select('id, name, position').single();
         if (error) throw error;
         // products.category is kept in sync with the category name for compatibility, as the app does
-        const { error: syncError } = await client.from('products').update({ category: newName.trim() }).eq('category_id', category.id);
+        const { error: syncError } = await client.from('products').update({ category: newName.trim() }).eq('category_id', category.id).eq('user_id', userId);
         if (syncError) throw syncError;
         return data as Category;
     }
 
     // Puts the given categories first, in that order; the rest keep their order after them
     async reorderCategories(order: (string | number)[]) {
-        const { client } = await this.session();
         const { categories } = await this.menu();
         const first = await Promise.all(order.map(item => this.findCategory(item)));
         const ids = [...new Set([...first.map(c => c.id), ...categories.map(c => c.id)])];
-        const { error } = await client.rpc('reorder_categories', { category_ids: ids });
-        if (error) throw error;
+        await this.reorder('categories', ids);
         return (await this.menu()).categories.map(c => c.name);
     }
 
     // Puts the given products first within their category, in that order; the rest of the category
     // keeps its order after them. Product positions are global, so the whole menu is renumbered.
     async reorderProducts(categoryNameOrId: string | number, productIds: number[]) {
-        const { client } = await this.session();
         const category = await this.findCategory(categoryNameOrId);
         const { products } = await this.menu();
         const inCategory = products.filter(p => p.category_id === category.id);
@@ -164,13 +188,11 @@ export class SmartQR {
     // Renumbers the whole menu with the given products first among those of categoryId (null = the
     // products without a category), keeping everything else in place
     private async saveOrder(products: Product[], categoryId: number | null, first: number[]) {
-        const { client } = await this.session();
         const inGroup = products.filter(p => p.category_id === categoryId);
         const newOrder = [...new Set([...first, ...inGroup.map(p => p.id)])];
         let next = 0;
         const ids = products.map(p => (p.category_id === categoryId ? newOrder[next++] : p.id) as number);
-        const { error } = await client.rpc('reorder_products', { product_ids: ids });
-        if (error) throw error;
+        await this.reorder('products', ids);
     }
 
     private async categoryFields(name: string | number | null | undefined) {
@@ -222,27 +244,43 @@ export class SmartQR {
         return data[0] as Product;
     }
 
-    // Downloads an image (http/https URL or local file), uploads it under the user's folder, as the
-    // storage policy requires, and sets it as the product's image
-    async setImage(id: number, source: string): Promise<Product> {
+    // Sets a product's image from a data URL in base64 (a photo received by WhatsApp), an https URL or,
+    // when the server runs on the owner's computer, a local file or http URL. Uploads it under the
+    // user's folder, as the storage policy requires.
+    async setImage(id: number, source: string, { allowLocalFiles }: { allowLocalFiles: boolean }): Promise<Product> {
         const { client, userId } = await this.session();
         let bytes: Buffer;
-        let type: string;
-        if (/^https?:\/\//i.test(source)) {
-            const response = await fetch(source);
-            if (!response.ok) throw new Error(`No se pudo descargar la imagen (HTTP ${response.status}).`);
-            const length = Number(response.headers.get('content-length') ?? 0);
-            if (length > MAX_IMAGE_BYTES) throw new Error('La imagen pesa más de 10 MB.');
-            bytes = Buffer.from(await response.arrayBuffer());
+        let type = '';
+        const dataUrl = /^data:([a-z]+\/[a-z0-9.+-]+)?;base64,(.*)$/is.exec(source.trim());
+        if (dataUrl) {
+            type = (dataUrl[1] ?? '').toLowerCase();
+            bytes = Buffer.from(dataUrl[2]!.replace(/\s+/g, ''), 'base64');
+        } else if (/^https:\/\//i.test(source) || (allowLocalFiles && /^http:\/\//i.test(source))) {
+            const response = await fetch(source, { signal: AbortSignal.timeout(20000) });
+            if (!response.ok || !response.body) throw new Error(`No se pudo descargar la imagen (HTTP ${response.status}).`);
             type = (response.headers.get('content-type') ?? '').split(';')[0]!.trim().toLowerCase();
-        } else {
+            // Stop reading as soon as it is too big, whatever the server says about its size
+            const chunks: Buffer[] = [];
+            let size = 0;
+            for await (const chunk of response.body as unknown as AsyncIterable<Uint8Array>) {
+                size += chunk.length;
+                if (size > MAX_IMAGE_BYTES) throw new Error('La imagen pesa más de 10 MB.');
+                chunks.push(Buffer.from(chunk));
+            }
+            bytes = Buffer.concat(chunks);
+        } else if (allowLocalFiles && !/^[a-z]+:/i.test(source)) {
             const { readFile } = await import('node:fs/promises');
             bytes = await readFile(source);
-            type = '';
+        } else {
+            throw new Error(allowLocalFiles
+                ? 'La imagen debe ser una URL, un archivo local o una data URL en base64.'
+                : 'La imagen debe ser una URL https o una data URL en base64 (data:image/jpeg;base64,…).');
         }
-        type = IMAGE_TYPES[type] ? type : sniffImageType(bytes);
-        if (!IMAGE_TYPES[type]) throw new Error('El archivo no es una imagen JPG, PNG, WebP o GIF.');
         if (bytes.length > MAX_IMAGE_BYTES) throw new Error('La imagen pesa más de 10 MB.');
+        // The bytes decide the type: a declared type that does not match them is not trusted
+        const sniffed = sniffImageType(bytes);
+        if (!IMAGE_TYPES[sniffed]) throw new Error('El archivo no es una imagen JPG, PNG, WebP o GIF.');
+        type = sniffed;
         // Check the product before uploading, so a wrong id does not leave an orphan file
         await this.product(id);
         const path = `${userId}/${Date.now()}-${randomUUID()}.${IMAGE_TYPES[type]}`;

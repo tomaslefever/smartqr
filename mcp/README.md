@@ -1,13 +1,17 @@
 # SmartQR MCP
 
-Servidor [MCP](https://modelcontextprotocol.io) para que un agente (Claude Code, Claude Desktop u otro cliente MCP) administre la carta de un negocio en SmartQR: verla, buscar, agregar y editar productos, cambiar precios, ocultarlos, ponerles imagen y ordenar la carta.
+Servidor [MCP](https://modelcontextprotocol.io) para que un agente administre la carta de un negocio en SmartQR: verla, buscar, agregar y editar productos, cambiar precios, ocultarlos, ponerles imagen y ordenar la carta.
 
-Entra con la cuenta del negocio, igual que el panel. Supabase solo le deja leer y cambiar la carta de esa cuenta (las mismas políticas RLS del panel); no usa claves de administrador.
+Funciona de dos maneras, con las mismas herramientas:
+
+- **Agente de WhatsApp (HTTP)**: un servicio en Easypanel al que se conecta un agente de WhatsApp por URL con un token. Atiende a todos los negocios: cada uno vincula su número de WhatsApp con un código que genera en el panel. Ver [Agente de WhatsApp](#agente-de-whatsapp-http).
+- **Local (stdio)**: para un solo negocio, desde Claude Code o Claude Desktop en el computador del dueño. Entra con la cuenta del negocio y Supabase solo le deja tocar esa carta (las mismas políticas RLS del panel). Ver [Instalación local](#instalación-local).
 
 ## Herramientas
 
 | Herramienta | Qué hace | Escribe |
 | --- | --- | --- |
+| `vincular_whatsapp` / `estado_whatsapp` / `desvincular_whatsapp` | Solo en HTTP: vincula el número de quien escribe con un código del panel, lo consulta o lo quita | Sí / No / Sí |
 | `ver_tienda` | Nombre, contacto, enlace a la tienda y resumen de la carta | No |
 | `ver_carta` | La carta en el orden de la tienda (opcional: una categoría) | No |
 | `buscar_productos` | Busca en nombre, descripción y categoría, sin importar tildes ni plurales | No |
@@ -18,7 +22,7 @@ Entra con la cuenta del negocio, igual que el panel. Supabase solo le deja leer 
 | `editar_producto` | Cambia nombre, descripción, precio, unidad o categoría | Sí |
 | `cambiar_estado` | Oculta, muestra o marca "No disponible" uno o más productos | Sí |
 | `cambiar_precios` | Precios uno a uno o en bloque por porcentaje, con `simular` para previsualizar | Sí |
-| `agregar_imagen` / `quitar_imagen` | Imagen desde una URL o un archivo local (JPG, PNG, WebP o GIF, hasta 10 MB) | Sí |
+| `agregar_imagen` / `quitar_imagen` | Imagen desde una data URL en base64 (una foto recibida por WhatsApp), una URL https o, en local, un archivo (JPG, PNG, WebP o GIF, hasta 10 MB) | Sí |
 | `crear_categoria` / `renombrar_categoria` | Categorías | Sí |
 | `ordenar_categorias` / `ordenar_productos` | Orden de la carta, como al arrastrar en el panel | Sí |
 
@@ -53,7 +57,49 @@ Si se pide agregar un producto sin decir su categoría, `agregar_producto` no lo
 
 Las sugerencias salen de la propia carta: palabras en común con el nombre de cada categoría y con sus productos. La primera palabra del nombre pesa más, porque dice qué plato es ("**Lomo** a lo pobre" va en Carnes y no en el acompañamiento "A lo pobre"); la descripción pesa poco, porque lista ingredientes que muchas categorías comparten; y las palabras que aparecen en todas partes cuentan menos. Si ninguna categoría destaca (empate o coincidencia débil), pregunta sin sugerir una por defecto. Con `TYPESAFE_API_KEY`, Jev también elige entre las categorías (o "ninguna"): si está seguro (≥ 0,6), su elección va primero.
 
-## Instalación
+## Agente de WhatsApp (HTTP)
+
+### Cómo se vincula un número
+
+1. En el panel de SmartQR, el negocio entra a **Agente de WhatsApp** y genera un código, por ejemplo `K7PM-4RXT`. Vence a los 10 minutos y sirve una sola vez; el panel tiene un botón para enviarlo por WhatsApp al número del agente (`WHATSAPP_NUMBER` de la web).
+2. El negocio le manda el código al agente por WhatsApp.
+3. El agente llama a `vincular_whatsapp` con el número de quien escribe y el código. Desde ahí, cada herramienta que el agente llame con ese número opera la carta de esa cuenta. El panel muestra el número vinculado y permite desvincularlo.
+
+Un número maneja una sola cuenta; si se vincula a otra, pasa a la nueva. Una cuenta puede tener varios números.
+
+### Seguridad
+
+- **Token del agente**: todo `/mcp` exige `Authorization: Bearer <MCP_TOKEN>`. Quien tiene el token puede actuar por cualquier número vinculado, así que el token es del agente de WhatsApp y de nadie más.
+- **El número lo pone el agente**: cada herramienta recibe `telefono`, que el agente toma del remitente del mensaje en WhatsApp, nunca del texto que escribe la persona.
+- **Clave de servicio**: el servidor usa la clave `service_role` de Supabase, que salta las políticas RLS; por eso cada consulta filtra por la cuenta vinculada al número (las pruebas lo verifican). Solo vive en las variables del servicio en Easypanel.
+- **Códigos**: 8 caracteres de un alfabeto de 32 (≈ 40 bits), 10 minutos, un solo uso, guardados solo como hash. Generarlos exige sesión en el panel; canjearlos, la clave de servicio.
+- **Imágenes**: en HTTP solo se aceptan data URLs y URLs https; nunca archivos del servidor.
+
+### Preparar Supabase
+
+Ejecuta [`supabase/whatsapp-agent.sql`](../supabase/whatsapp-agent.sql) en el SQL Editor (tablas `whatsapp_links` y `whatsapp_link_codes` y sus funciones). Sin esto, la página del panel avisa que el agente no está habilitado y `vincular_whatsapp` falla.
+
+### Desplegar en Easypanel
+
+1. Crea un servicio **App** nuevo, conectado a este repositorio y a la rama `main`.
+2. En **Build**, elige **Dockerfile**, con **Build Path** `/mcp` (usa [`mcp/Dockerfile`](Dockerfile)).
+3. En **Environment**, define:
+
+   | Variable | Valor |
+   | --- | --- |
+   | `MCP_TOKEN` | Token del agente, al menos 32 caracteres al azar (por ejemplo `openssl rand -hex 32`) |
+   | `SUPABASE_URL` | URL del proyecto, la misma de la web |
+   | `SUPABASE_SERVICE_ROLE_KEY` | Clave `service_role` (*Project Settings → API*). No es la clave `anon` |
+   | `SMARTQR_URL` (opcional) | Sitio de las tiendas; por defecto `https://smartqr.cl` |
+   | `TYPESAFE_API_KEY` (opcional) | Para la segunda opinión de Jev |
+
+4. En **Domains**, apunta un dominio (por ejemplo `mcp.smartqr.cl`) al puerto **3000**. El healthcheck es `/healthz`.
+
+### Conectar el agente
+
+URL del servidor MCP: `https://mcp.smartqr.cl/mcp`, transporte **Streamable HTTP**, con el header `Authorization: Bearer <MCP_TOKEN>`. El servidor no guarda sesiones: cada solicitud es independiente. En cada herramienta, el agente envía en `telefono` el número del remitente tal como lo entrega WhatsApp (`+56912345678`, `56912345678` o `56912345678@s.whatsapp.net`).
+
+## Instalación local
 
 Requiere Node.js 20 o superior.
 
@@ -63,7 +109,7 @@ npm install
 npm run build
 ```
 
-### Variables de entorno
+### Variables de entorno (local)
 
 | Variable | Valor |
 | --- | --- |
@@ -104,4 +150,5 @@ Cada negocio es una instancia del servidor con sus propias credenciales.
 ## Desarrollo
 
 - `npm run typecheck`: revisa los tipos.
-- `npm test`: compila y corre las pruebas del evaluador (`test/`), con productos reales de cartas cargadas en SmartQR y un Jev simulado para cada camino de la combinación.
+- `npm test`: compila y corre las pruebas (`test/`): el evaluador y las sugerencias de categoría con productos reales de cartas cargadas en SmartQR y un Jev simulado, y el servidor HTTP contra un Supabase simulado (token, vínculo con código, filtro por cuenta, fuentes de imagen).
+- `npm start`: el servidor HTTP (`dist/src/http.js`), con las variables de Easypanel.

@@ -442,3 +442,40 @@ export const setActiveTheme = async (themeId: string | null): Promise<boolean> =
     }
     return true;
 };
+
+// --- WhatsApp agent (supabase/whatsapp-agent.sql) ---
+
+export interface WhatsAppLink {
+    phone: string;
+    created_at: string;
+}
+
+// Thrown when supabase/whatsapp-agent.sql has not run, so the page can say so instead of failing
+export class WhatsAppAgentUnavailable extends Error {}
+
+// A missing table (PGRST205, 42P01) or function (PGRST202, 42883)
+const isMissingAgentSchema = (error: { code?: string } | null) =>
+    isMissingSchema(error) || error?.code === 'PGRST202' || error?.code === '42883';
+
+// A one-time code, valid 10 minutes, that the business sends to the WhatsApp agent to link its number
+export const createWhatsAppLinkCode = async (): Promise<{ code: string; expires_at: string }> => {
+    if (!supabase) throw new Error('Supabase no está configurado.');
+    const { data, error } = await supabase.rpc('create_whatsapp_link_code');
+    if (isMissingAgentSchema(error)) throw new WhatsAppAgentUnavailable();
+    if (error) throw new Error(error.message);
+    return (Array.isArray(data) ? data[0] : data) as { code: string; expires_at: string };
+};
+
+export const getWhatsAppLinks = async (): Promise<WhatsAppLink[]> => {
+    if (!supabase) return [];
+    const { data, error } = await supabase.from('whatsapp_links').select('phone, created_at').order('created_at', { ascending: false });
+    if (isMissingAgentSchema(error)) throw new WhatsAppAgentUnavailable();
+    if (error) throw new Error(error.message);
+    return data as WhatsAppLink[];
+};
+
+export const removeWhatsAppLink = async (phone: string): Promise<void> => {
+    if (!supabase) return;
+    const { error } = await supabase.from('whatsapp_links').delete().eq('phone', phone);
+    if (error) throw new Error(error.message);
+};

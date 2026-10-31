@@ -4,6 +4,7 @@ import ProductsPage from './components/ProductsPage.tsx';
 import CategoriesPage from './components/CategoriesPage.tsx';
 import Store from './components/Store.tsx';
 import StoreStylePage from './components/StoreStylePage.tsx';
+import WhatsAppAgentPage from './components/WhatsAppAgentPage.tsx';
 import AppShell from './components/AppShell.tsx';
 import Login from './components/auth/Login.tsx';
 import Register from './components/auth/Register.tsx';
@@ -35,6 +36,7 @@ const App: React.FC = () => {
               <Route path="/productos" element={<ProductsPage />} />
               <Route path="/categorias" element={<CategoriesPage />} />
               <Route path="/estilo" element={<StoreStylePage />} />
+              <Route path="/whatsapp" element={<WhatsAppAgentPage />} />
             </Route>
           </Routes>
         </AuthProvider>
