@@ -40,7 +40,7 @@ export interface ProductInput {
     descripcion?: string;
     precio?: number;
     unidad?: 'unit' | 'kg';
-    categoria?: string;
+    categoria?: string | number;
     activo?: boolean;
 }
 
@@ -49,7 +49,7 @@ export interface ProductPatch {
     descripcion?: string;
     precio?: number;
     unidad?: 'unit' | 'kg';
-    categoria?: string | null;
+    categoria?: string | number | null;
 }
 
 export class SmartQR {
@@ -165,9 +165,9 @@ export class SmartQR {
         return (await this.menu()).products.filter(p => p.category_id === category.id).map(p => ({ id: p.id, nombre: p.name }));
     }
 
-    private async categoryFields(name: string | null | undefined) {
+    private async categoryFields(name: string | number | null | undefined) {
         if (name === undefined) return {};
-        if (name === null || name.trim() === '') return { category_id: null, category: '' };
+        if (name === null || String(name).trim() === '') return { category_id: null, category: '' };
         const category = await this.findCategory(name);
         return { category_id: category.id, category: category.name };
     }

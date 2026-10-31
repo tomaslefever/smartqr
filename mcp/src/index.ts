@@ -52,6 +52,8 @@ const WRITE = { readOnlyHint: false, destructiveHint: false, idempotentHint: tru
 
 const productId = z.number().int().positive().describe('Id del producto (de ver_carta o buscar_productos)');
 const price = z.number().int().min(0).describe('Precio en pesos, entero (0 = sin precio)');
+// A category by name or by id: agents get ids from ver_carta and crear_categoria
+const category = z.union([z.string().min(1), z.number().int().positive()]);
 
 server.registerTool('ver_tienda', {
     title: 'Ver la tienda',
@@ -73,7 +75,7 @@ server.registerTool('ver_carta', {
     title: 'Ver la carta',
     description: 'La carta completa en el orden en que la muestra la tienda: categorías y sus productos con id, precio, descripción y estado (activo, oculto o no disponible).',
     inputSchema: {
-        categoria: z.string().optional().describe('Solo esta categoría (nombre o id)'),
+        categoria: category.optional().describe('Solo esta categoría (nombre o id)'),
         incluir_ocultos: z.boolean().default(true).describe('Incluir los productos ocultos de la tienda'),
     },
     annotations: READ,
@@ -168,7 +170,7 @@ server.registerTool('agregar_producto', {
         descripcion: z.string().optional(),
         precio: price.optional(),
         unidad: z.enum(['unit', 'kg']).optional().describe('unit = por unidad (por defecto), kg = precio por kilo'),
-        categoria: z.string().optional().describe('Nombre o id de una categoría existente'),
+        categoria: category.optional().describe('Nombre o id de una categoría existente'),
         activo: z.boolean().optional().describe('false para crearlo oculto'),
     },
     annotations: { ...WRITE, idempotentHint: false },
@@ -183,7 +185,7 @@ server.registerTool('editar_producto', {
         descripcion: z.string().optional(),
         precio: price.optional(),
         unidad: z.enum(['unit', 'kg']).optional(),
-        categoria: z.string().nullable().optional().describe('Nombre o id de la categoría; null para dejarlo sin categoría'),
+        categoria: category.nullable().optional().describe('Nombre o id de la categoría; null para dejarlo sin categoría'),
     },
     annotations: WRITE,
 }, run(async ({ id, ...patch }) => {
@@ -216,7 +218,7 @@ server.registerTool('cambiar_precios', {
         cambios: z.array(z.object({ id: productId, precio: price })).optional(),
         porcentaje: z.number().min(-90).max(500).optional().describe('Por ejemplo 10 sube 10 %, -5 baja 5 %'),
         ids: z.array(productId).optional().describe('Productos a los que aplicar el porcentaje'),
-        categoria: z.string().optional().describe('Categoría a la que aplicar el porcentaje'),
+        categoria: category.optional().describe('Categoría (nombre o id) a la que aplicar el porcentaje'),
         redondeo: z.number().int().positive().default(100).describe('Redondea el resultado del porcentaje a este múltiplo'),
         simular: z.boolean().default(false),
     },
@@ -265,21 +267,21 @@ server.registerTool('crear_categoria', {
 server.registerTool('renombrar_categoria', {
     title: 'Renombrar categoría',
     description: 'Cambia el nombre de una categoría.',
-    inputSchema: { categoria: z.string().describe('Nombre o id actual'), nombre: z.string().min(1).describe('Nombre nuevo') },
+    inputSchema: { categoria: category.describe('Nombre o id actual'), nombre: z.string().min(1).describe('Nombre nuevo') },
     annotations: WRITE,
 }, run(async ({ categoria, nombre }) => smartqr.renameCategory(categoria, nombre)));
 
 server.registerTool('ordenar_categorias', {
     title: 'Ordenar categorías',
     description: 'Pone las categorías indicadas primero, en ese orden; las demás quedan después en su orden actual. Para ordenar toda la carta, envía todas.',
-    inputSchema: { orden: z.array(z.string()).min(1).describe('Nombres o ids de categorías') },
+    inputSchema: { orden: z.array(category).min(1).describe('Nombres o ids de categorías') },
     annotations: WRITE,
 }, run(async ({ orden }) => smartqr.reorderCategories(orden)));
 
 server.registerTool('ordenar_productos', {
     title: 'Ordenar productos de una categoría',
     description: 'Pone los productos indicados primero dentro de su categoría, en ese orden; los demás de la categoría quedan después en su orden actual.',
-    inputSchema: { categoria: z.string(), orden: z.array(productId).min(1) },
+    inputSchema: { categoria: category.describe('Nombre o id'), orden: z.array(productId).min(1) },
     annotations: WRITE,
 }, run(async ({ categoria, orden }) => smartqr.reorderProducts(categoria, orden)));
 
