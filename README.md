@@ -17,7 +17,7 @@ Panel para que negocios administren su inventario de productos y compartan una t
     4. `products-active.sql`
     5. `products-position.sql`
     6. `categories.sql`
-    7. `whatsapp-agent.sql` (agente de WhatsApp; ver [`mcp/README.md`](mcp/README.md))
+    7. `whatsapp-agent.sql` (agente de WhatsApp; ver [smart-qr-mcp](https://github.com/tomaslefever/smart-qr-mcp))
 
 ## Configuración
 
@@ -48,7 +48,7 @@ Otros comandos:
 
 ## Servidor MCP
 
-[`mcp/`](mcp/) tiene un servidor MCP para que un agente administre la carta de un negocio: buscar, agregar y editar productos, cambiar precios, ocultarlos, ponerles imagen, ordenar la carta y evaluar qué bajar cuando se acaba un ingrediente. Funciona en local para un negocio, o como servicio HTTP en Easypanel para el agente de WhatsApp: cada negocio vincula su número con un código que genera en el panel (menú **Agente de WhatsApp**). Se despliega aparte; ver [`mcp/README.md`](mcp/README.md).
+El servidor MCP está en su propio repositorio, [tomaslefever/smart-qr-mcp](https://github.com/tomaslefever/smart-qr-mcp). Sirve para que un agente administre la carta de un negocio: buscar, agregar y editar productos, cambiar precios, ocultarlos, ponerles imagen, ordenar la carta y evaluar qué bajar cuando se acaba un ingrediente. Funciona en local para un negocio, o como servicio HTTP en Easypanel para el agente de WhatsApp: cada negocio vincula su número con un código que genera en el panel (menú **Agente de WhatsApp**). Se despliega como un servicio aparte en Easypanel; ver su README. La migración [`supabase/whatsapp-agent.sql`](supabase/whatsapp-agent.sql) también está copiada allá: si cambias una, cambia la otra.
 
 ## Animaciones (React Bits)
 

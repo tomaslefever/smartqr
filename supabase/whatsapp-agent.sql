@@ -1,4 +1,4 @@
--- SmartQR: vincular números de WhatsApp con una cuenta, para el agente de WhatsApp (servidor MCP en mcp/).
+-- SmartQR: vincular números de WhatsApp con una cuenta, para el agente de WhatsApp (servidor MCP: https://github.com/tomaslefever/smart-qr-mcp).
 -- Ejecutar en Supabase > SQL Editor. Se puede correr más de una vez.
 --
 -- Flujo: en el panel el negocio genera un código (create_whatsapp_link_code), lo envía por WhatsApp al
