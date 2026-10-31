@@ -236,9 +236,10 @@ const Store: React.FC = () => {
             </header>
             
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 sm:pt-8 flex-grow w-full">
-                {/* Edge to edge on mobile, where it is the only sticky element */}
+                {/* Edge to edge on mobile, where it is the only sticky element. From sm up the category bar scrolls
+                    within the space the search leaves, so a long list of categories cannot widen the page. */}
                 <div ref={stickyBarRef} style={{ top: stickyBarTop }} className="sticky z-10 -mx-4 mb-6 flex flex-col items-center gap-3 bg-[color:var(--store-card)] px-4 py-3 shadow-md sm:mx-0 sm:mb-8 sm:flex-row sm:gap-4 sm:rounded-lg sm:p-4 sm:shadow-sm">
-                    <div className="relative flex-grow w-full sm:w-auto">
+                    <div className="relative flex-grow w-full sm:w-auto sm:min-w-[14rem]">
                         <span className="absolute inset-y-0 left-0 flex items-center pl-3">
                             <SearchIcon />
                         </span>
@@ -250,7 +251,7 @@ const Store: React.FC = () => {
                             className="w-full pl-10 pr-4 py-2 bg-transparent text-[color:var(--store-text)] placeholder:text-[color:var(--store-muted)] border border-[color:var(--store-border)] rounded-full focus:outline-none focus:ring-2 focus:ring-[color:var(--store-accent-soft)] focus:border-[color:var(--store-accent)] transition"
                         />
                     </div>
-                    <div ref={categoryBarRef} className="no-scrollbar -mx-4 flex w-[calc(100%+2rem)] flex-shrink-0 items-center gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:w-auto sm:px-0 sm:pb-2">
+                    <div ref={categoryBarRef} className="no-scrollbar -mx-4 flex w-[calc(100%+2rem)] flex-shrink-0 items-center gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:w-auto sm:min-w-0 sm:flex-shrink sm:px-0 sm:pb-2">
                         {categories.map(category => (
                             <button
                                 key={category}
