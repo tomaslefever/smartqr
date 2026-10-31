@@ -45,6 +45,10 @@ Otros comandos:
 - `npm run build`: genera el build de producción en `dist/`.
 - `npm start`: sirve `dist/` con `server.js` (requiere `npm run build` antes).
 
+## Servidor MCP
+
+[`mcp/`](mcp/) tiene un servidor MCP para que un agente administre la carta de un negocio: buscar, agregar y editar productos, cambiar precios, ocultarlos, ponerles imagen, ordenar la carta y evaluar qué bajar cuando se acaba un ingrediente. Se instala y configura aparte; ver [`mcp/README.md`](mcp/README.md).
+
 ## Animaciones (React Bits)
 
 Las animaciones y efectos vienen de [React Bits](https://reactbits.dev), en su variante TypeScript + Tailwind. Los componentes se copian tal cual en [`components/reactbits/`](components/reactbits/) y [`components/effects.tsx`](components/effects.tsx) los adapta a los colores del panel. Para sumar otro, copia su archivo desde `https://reactbits.dev/r/<Nombre>-TS-TW.json` (campo `files[].content`) a esa carpeta e instala las dependencias que indique (`motion`, `gsap`).
