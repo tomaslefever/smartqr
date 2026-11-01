@@ -64,4 +64,10 @@ export interface Profile {
   email: string | null;
   // Theme used by the public store; null means the default style
   theme_id?: string | null;
+  // How the public store lists products; missing before supabase/store-layout.sql, which counts as 'list'
+  store_layout?: StoreLayout;
 }
+
+// 'list': one column of horizontal cards, image on the right. 'grid': two columns on phones (more on
+// wider screens) of vertical cards, image on top.
+export type StoreLayout = 'list' | 'grid';

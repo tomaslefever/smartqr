@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient.ts';
-import { Category, Product, Profile, Theme, ThemeStyle } from '../types.ts';
+import { Category, Product, Profile, StoreLayout, Theme, ThemeStyle } from '../types.ts';
 
 const BUCKET_NAME = 'product-images';
 
@@ -453,6 +453,28 @@ export const setActiveTheme = async (themeId: string | null): Promise<boolean> =
 
     if (error) {
         console.error('Error setting active theme:', error);
+        return false;
+    }
+    return true;
+};
+
+// Rows from before supabase/store-layout.sql (or with an unexpected value) show as a single column
+export const storeLayoutOf = (profile: Profile | null): StoreLayout =>
+    profile?.store_layout === 'grid' ? 'grid' : 'list';
+
+export const setStoreLayout = async (layout: StoreLayout): Promise<boolean> => {
+    if (!supabase) return false;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
+
+    // Upsert with only these columns, so the rest of the profile is left as it is
+    const { error } = await supabase
+        .from('profiles')
+        .upsert({ id: user.id, store_layout: layout });
+
+    if (error) {
+        console.error('Error setting store layout:', error);
         return false;
     }
     return true;

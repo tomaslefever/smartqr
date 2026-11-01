@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { Product, Profile, Theme } from '../types.ts';
+import { Product, Profile, StoreLayout, Theme } from '../types.ts';
 import * as supabaseService from '../services/supabaseService.ts';
 import { SearchIcon, PhoneIcon, MailIcon, LocationMarkerIcon } from './Icons.tsx';
 import ProductDetailModal from './ProductDetailModal.tsx';
@@ -15,14 +15,21 @@ const CARD_SHADOW =
     '[--card-shadow:0_4px_6px_-1px_rgb(0_0_0/0.1),0_2px_4px_-2px_rgb(0_0_0/0.1)] ' +
     'hover:[--card-shadow:0_10px_15px_-3px_rgb(0_0_0/0.1),0_4px_6px_-4px_rgb(0_0_0/0.1)]';
 
-// Horizontal card: name, description and price on the left and a square image on the right.
+// Product card. In the 'list' layout it is horizontal: name, description and price on the left and a
+// square image on the right; without an image (or if it fails to load) the text uses the full width.
+// In the 'grid' layout it is vertical, with the image on top filling the card's width; without one a
+// placeholder keeps the cards in a row aligned.
 // Only the name is always there: description, price (when above 0) and image show only if the product
-// has them, and without an image (or if it fails to load) the text uses the full width.
-// The background lights up in the theme's accent color around the pointer. The outer div is what list
-// animations move and fade, so they cannot override the dimming of unavailable products.
-export const ProductCard: React.FC<{ product: Product; onClick: () => void; }> = ({ product, onClick }) => {
+// has them. The background lights up in the theme's accent color around the pointer. The outer div is
+// what list animations move and fade, so they cannot override the dimming of unavailable products.
+export const ProductCard: React.FC<{ product: Product; onClick: () => void; layout?: StoreLayout }> = ({ product, onClick, layout = 'list' }) => {
     const [imageFailed, setImageFailed] = useState(false);
     const showImage = Boolean(product.image_url) && !imageFailed;
+    const grid = layout === 'grid';
+
+    const image = showImage && (
+        <img src={product.image_url} alt={product.name} onError={() => setImageFailed(true)} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+    );
 
     return (
         <div className="h-full">
@@ -40,20 +47,32 @@ export const ProductCard: React.FC<{ product: Product; onClick: () => void; }> =
                     '--spotlight-card-shadow': 'var(--card-shadow)',
                 } as React.CSSProperties}
             >
-                <button onClick={onClick} className="group flex h-full w-full items-stretch gap-4 rounded-xl p-4 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--store-accent)]">
-                    <div className="flex min-w-0 flex-1 flex-col">
-                        <h3 className="text-base font-bold leading-snug text-[color:var(--store-text)] line-clamp-2 sm:text-lg">{product.name}</h3>
-                        {product.description && <p className="mt-1 text-sm text-[color:var(--store-muted)] line-clamp-2">{product.description}</p>}
+                <button
+                    onClick={onClick}
+                    className={`group flex h-full w-full rounded-xl text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--store-accent)] ${grid ? 'flex-col' : 'items-stretch gap-4 p-4'}`}
+                >
+                    {grid && (
+                        <div className="aspect-square w-full flex-shrink-0 overflow-hidden bg-[color:var(--store-subtle)]">
+                            {image || (
+                                <div aria-hidden="true" className="flex h-full w-full items-center justify-center text-4xl font-bold text-[color:var(--store-muted)] opacity-50">
+                                    {product.name.trim().charAt(0).toUpperCase()}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                    <div className={`flex min-w-0 flex-1 flex-col ${grid ? 'p-3 sm:p-4' : ''}`}>
+                        <h3 className={`font-bold leading-snug text-[color:var(--store-text)] line-clamp-2 ${grid ? 'text-sm sm:text-base' : 'text-base sm:text-lg'}`}>{product.name}</h3>
+                        {product.description && <p className={`mt-1 text-[color:var(--store-muted)] line-clamp-2 ${grid ? 'text-xs sm:text-sm' : 'text-sm'}`}>{product.description}</p>}
                         {(product.price > 0 || product.out_of_stock) && (
-                            <div className="mt-auto flex flex-wrap items-center gap-2 pt-3">
-                                {product.price > 0 && <p className="text-lg font-bold text-[color:var(--store-accent)]">${product.price.toLocaleString('es-CL')}{product.unit === 'kg' ? <span className="text-sm font-normal text-[color:var(--store-muted)]">/kg</span> : ''}</p>}
+                            <div className={`mt-auto flex flex-wrap items-center gap-2 ${grid ? 'pt-2' : 'pt-3'}`}>
+                                {product.price > 0 && <p className={`font-bold text-[color:var(--store-accent)] ${grid ? 'text-base sm:text-lg' : 'text-lg'}`}>${product.price.toLocaleString('es-CL')}{product.unit === 'kg' ? <span className="text-sm font-normal text-[color:var(--store-muted)]">/kg</span> : ''}</p>}
                                 {product.out_of_stock && <p className="text-xs font-medium text-[color:var(--store-muted)] bg-[color:var(--store-subtle)] px-2 py-0.5 rounded-full">No disponible</p>}
                             </div>
                         )}
                     </div>
-                    {showImage && (
+                    {!grid && showImage && (
                         <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg sm:h-28 sm:w-28">
-                            <img src={product.image_url} alt={product.name} onError={() => setImageFailed(true)} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                            {image}
                         </div>
                     )}
                 </button>
@@ -61,6 +80,12 @@ export const ProductCard: React.FC<{ product: Product; onClick: () => void; }> =
         </div>
     );
 };
+
+// Columns of the product grid for each layout
+export const productGridClass = (layout: StoreLayout) =>
+    layout === 'grid'
+        ? 'grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4'
+        : 'grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3';
 
 
 const Store: React.FC = () => {
@@ -216,6 +241,7 @@ const Store: React.FC = () => {
 
     const displayCategories = Object.keys(productsByCategory);
     const themeStyle = useMemo(() => normalizeThemeStyle(theme), [theme]);
+    const layout = supabaseService.storeLayoutOf(profile);
 
     // Avoid flashing the default style before the business's theme is known
     if (loading) {
@@ -286,9 +312,9 @@ const Store: React.FC = () => {
                             >
                                 {category && <h2 className="text-2xl font-bold text-[color:var(--store-text)] mb-4 border-b-2 border-[color:var(--store-accent-soft)] pb-2">{category}</h2>}
                                 {/* Cards slide in one after another as the section scrolls into view */}
-                                <AnimatedContent distance={24} duration={0.5} ease="power2.out" stagger={0.06} className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                                <AnimatedContent distance={24} duration={0.5} ease="power2.out" stagger={0.06} className={productGridClass(layout)}>
                                     {productsByCategory[category].map(product => (
-                                        <ProductCard key={product.id} product={product} onClick={() => setSelectedProduct(product)} />
+                                        <ProductCard key={product.id} product={product} layout={layout} onClick={() => setSelectedProduct(product)} />
                                     ))}
                                 </AnimatedContent>
                             </section>

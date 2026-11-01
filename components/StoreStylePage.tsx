@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { PageHeader } from './AppShell.tsx';
-import { Product, Theme, ThemeStyle } from '../types.ts';
+import { Product, StoreLayout, Theme, ThemeStyle } from '../types.ts';
 import * as supabaseService from '../services/supabaseService.ts';
 import { useAuth } from '../context/AuthContext.tsx';
-import { ProductCard } from './Store.tsx';
+import { ProductCard, productGridClass } from './Store.tsx';
 import { UploadIcon } from './Icons.tsx';
 import ThemeSelect, { NEW_THEME } from './ThemeSelect.tsx';
 import { buttonClass, cardClass, errorBoxClass, hintClass, inputClass, labelClass, successBoxClass } from './ui.ts';
@@ -63,7 +63,41 @@ const ColorField: React.FC<{ id: string; label: string; hint?: string; value: st
     );
 };
 
-const StorePreview: React.FC<{ style: ThemeStyle; businessName: string; products: Product[] }> = ({ style, businessName, products }) => {
+const LAYOUT_OPTIONS: { value: StoreLayout; label: string; description: string }[] = [
+    { value: 'list', label: '1 columna', description: 'Foto a la derecha' },
+    { value: 'grid', label: '2 columnas', description: 'Foto arriba' },
+];
+
+// Small drawings of each layout for the selector
+const LayoutIcon: React.FC<{ layout: StoreLayout }> = ({ layout }) => (
+    <svg viewBox="0 0 32 32" aria-hidden="true" className="h-8 w-8 flex-shrink-0">
+        {layout === 'list' ? (
+            <>
+                {[3, 17].map(y => (
+                    <g key={y}>
+                        <rect x="2" y={y} width="28" height="12" rx="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                        <rect x="5" y={y + 3} width="11" height="2" rx="1" fill="currentColor" />
+                        <rect x="5" y={y + 7} width="7" height="2" rx="1" fill="currentColor" opacity="0.5" />
+                        <rect x="20" y={y + 2.5} width="7" height="7" rx="1" fill="currentColor" opacity="0.35" />
+                    </g>
+                ))}
+            </>
+        ) : (
+            <>
+                {[2, 17].map(x => (
+                    <g key={x}>
+                        <rect x={x} y="3" width="13" height="26" rx="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                        <rect x={x + 2.5} y="5.5" width="8" height="10" rx="1" fill="currentColor" opacity="0.35" />
+                        <rect x={x + 2.5} y="19" width="8" height="2" rx="1" fill="currentColor" />
+                        <rect x={x + 2.5} y="23" width="5" height="2" rx="1" fill="currentColor" opacity="0.5" />
+                    </g>
+                ))}
+            </>
+        )}
+    </svg>
+);
+
+const StorePreview: React.FC<{ style: ThemeStyle; layout: StoreLayout; businessName: string; products: Product[] }> = ({ style, layout, businessName, products }) => {
     const categories = Array.from(new Set(products.map(p => p.category).filter(Boolean))).slice(0, 3);
 
     return (
@@ -86,9 +120,10 @@ const StorePreview: React.FC<{ style: ThemeStyle; businessName: string; products
                     ))}
                 </div>
                 <h2 className="text-2xl font-bold border-b-2 border-[color:var(--store-accent-soft)] pb-2">{categories[0] ?? 'Productos'}</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    {products.slice(0, 2).map(product => (
-                        <ProductCard key={product.id} product={product} onClick={() => {}} />
+                {/* The preview is narrower than the store, so it shows the columns of a phone */}
+                <div className={layout === 'grid' ? 'grid grid-cols-2 gap-3' : 'grid grid-cols-1 sm:grid-cols-2 gap-6'}>
+                    {products.slice(0, layout === 'grid' ? 4 : 2).map(product => (
+                        <ProductCard key={product.id} product={product} layout={layout} onClick={() => {}} />
                     ))}
                 </div>
             </div>
@@ -107,6 +142,9 @@ const StoreStylePage: React.FC = () => {
     // Name and style when the current theme was opened, to know whether there are unsaved changes
     const [baseline, setBaseline] = useState<{ name: string; style: ThemeStyle }>({ name: '', style: DEFAULT_THEME_STYLE });
     const [businessName, setBusinessName] = useState('');
+    const [layout, setLayout] = useState<StoreLayout>('list');
+    const [savingLayout, setSavingLayout] = useState(false);
+    const [layoutMessage, setLayoutMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [busy, setBusy] = useState(false);
@@ -138,6 +176,7 @@ const StoreStylePage: React.FC = () => {
             setThemes(themesData);
             setActiveThemeId(activeId);
             setBusinessName(profile?.business_name || '');
+            setLayout(supabaseService.storeLayoutOf(profile));
             setProducts(productsData);
 
             // Start on the theme in use, or the first predefined one ("Clásico")
@@ -276,6 +315,23 @@ const StoreStylePage: React.FC = () => {
         });
     };
 
+    // Saved right away and independent of the theme, so it applies whatever theme the store uses
+    const handleLayoutChange = async (next: StoreLayout) => {
+        if (next === layout || savingLayout) return;
+        const previous = layout;
+        setLayout(next);
+        setSavingLayout(true);
+        setLayoutMessage(null);
+        const ok = await supabaseService.setStoreLayout(next);
+        setSavingLayout(false);
+        if (ok) {
+            setLayoutMessage({ type: 'success', text: 'Diseño guardado. Ya se ve en tu tienda.' });
+        } else {
+            setLayout(previous);
+            setLayoutMessage({ type: 'error', text: 'No se pudo guardar el diseño. ¿Se ejecutó la migración supabase/store-layout.sql?' });
+        }
+    };
+
     const handleDiscard = () => {
         if (selectedTheme) select(selectedTheme);
         else if (themes[0]) select(themes[0]);
@@ -305,6 +361,41 @@ const StoreStylePage: React.FC = () => {
                 ) : (
                     <>
                         <Reveal stagger={0.1} delay={0.1} className="grid grid-cols-1 lg:grid-cols-[22rem_1fr] gap-8 items-start">
+                            <div className="space-y-6">
+                            <div className={`${cardClass} p-6 space-y-3`}>
+                                <div>
+                                    <p id="layout-label" className="text-sm font-medium text-fg">Diseño de la carta</p>
+                                    <p className={hintClass}>Cómo se ven los productos en el celular. En pantallas grandes caben más columnas.</p>
+                                </div>
+                                <div role="radiogroup" aria-labelledby="layout-label" className="grid grid-cols-2 gap-2">
+                                    {LAYOUT_OPTIONS.map(option => {
+                                        const checked = layout === option.value;
+                                        return (
+                                            <button
+                                                key={option.value}
+                                                type="button"
+                                                role="radio"
+                                                aria-checked={checked}
+                                                onClick={() => handleLayoutChange(option.value)}
+                                                disabled={savingLayout}
+                                                className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors disabled:cursor-wait ${checked
+                                                    ? 'border-primary bg-primary/10 text-fg ring-1 ring-primary'
+                                                    : 'border-line text-fg-muted hover:border-control hover:text-fg'}`}
+                                            >
+                                                <LayoutIcon layout={option.value} />
+                                                <span className="min-w-0">
+                                                    <span className="block text-sm font-medium">{option.label}</span>
+                                                    <span className="block text-xs text-fg-subtle">{option.description}</span>
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                {layoutMessage && (
+                                    <p className={layoutMessage.type === 'success' ? successBoxClass : errorBoxClass}>{layoutMessage.text}</p>
+                                )}
+                            </div>
+
                             <div className={`${cardClass} p-6 space-y-6`}>
                                 <div>
                                     <label htmlFor="theme-select" className={labelClass}>Tema</label>
@@ -419,10 +510,11 @@ const StoreStylePage: React.FC = () => {
                                     )}
                                 </div>
                             </div>
+                            </div>
 
                             <div className="lg:sticky lg:top-8">
                                 <p className="text-sm font-medium text-fg mb-2">Vista previa en tiempo real</p>
-                                <StorePreview style={previewStyle} businessName={businessName} products={previewProducts} />
+                                <StorePreview style={previewStyle} layout={layout} businessName={businessName} products={previewProducts} />
                             </div>
                         </Reveal>
                     </>
