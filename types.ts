@@ -66,6 +66,12 @@ export interface Profile {
   theme_id?: string | null;
   // How the public store lists products; missing before supabase/store-layout.sql, which counts as 'list'
   store_layout?: StoreLayout;
+  // WhatsApp orders from the public store; all missing before supabase/whatsapp-orders.sql
+  orders_enabled?: boolean;
+  // Number that receives the orders: country code and digits only, e.g. 56912345678
+  orders_whatsapp?: string | null;
+  // Whether the business delivers; otherwise orders are for pickup (or for the table)
+  orders_delivery?: boolean;
 }
 
 // 'list': one column of horizontal cards, image on the right. 'grid': two columns on phones (more on
