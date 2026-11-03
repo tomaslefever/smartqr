@@ -20,6 +20,7 @@ Panel para que negocios administren su inventario de productos y compartan una t
     7. `whatsapp-agent.sql` (agente de WhatsApp; ver [smart-qr-mcp](https://github.com/tomaslefever/smart-qr-mcp))
     8. `categories-active.sql` (ocultar y mostrar categorías)
     9. `store-layout.sql` (diseño de la carta en 1 o 2 columnas)
+    10. `whatsapp-orders.sql` (pedidos por WhatsApp desde la carta)
 
 ## Configuración
 

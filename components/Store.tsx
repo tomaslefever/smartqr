@@ -1,9 +1,25 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { Product, Profile, StoreLayout, Theme } from '../types.ts';
 import * as supabaseService from '../services/supabaseService.ts';
 import { SearchIcon, PhoneIcon, MailIcon, LocationMarkerIcon } from './Icons.tsx';
 import ProductDetailModal from './ProductDetailModal.tsx';
+import OrderSheet, { WhatsAppIcon } from './OrderSheet.tsx';
+import {
+    OrderDetails,
+    OrderItems,
+    buildOrderMessage,
+    changeQuantity,
+    formatPrice,
+    loadOrder,
+    orderCount,
+    orderLines,
+    orderLink,
+    orderTotal,
+    ordersNumber,
+    parseTable,
+    saveOrder,
+} from './storeOrder.ts';
 import { normalizeThemeStyle, themeStyleVars } from './storeTheme.ts';
 import AnimatedContent from './reactbits/AnimatedContent.tsx';
 import BlurText from './reactbits/BlurText.tsx';
@@ -20,12 +36,24 @@ const CARD_SHADOW =
 // In the 'grid' layout it is vertical, with the image on top filling the card's width; without one a
 // placeholder keeps the cards in a row aligned.
 // Only the name is always there: description, price (when above 0) and image show only if the product
-// has them. The background lights up in the theme's accent color around the pointer. The outer div is
+// has them. When the store takes orders, a round button adds the product (and shows how many are in the
+// order); it sits over the card instead of inside it because the card itself is a button that opens the
+// details. The background lights up in the theme's accent color around the pointer. The outer div is
 // what list animations move and fade, so they cannot override the dimming of unavailable products.
-export const ProductCard: React.FC<{ product: Product; onClick: () => void; layout?: StoreLayout }> = ({ product, onClick, layout = 'list' }) => {
+export const ProductCard: React.FC<{
+    product: Product;
+    onClick: () => void;
+    layout?: StoreLayout;
+    // Present only when the store takes orders
+    onAdd?: () => void;
+    orderQuantity?: number;
+}> = ({ product, onClick, layout = 'list', onAdd, orderQuantity = 0 }) => {
     const [imageFailed, setImageFailed] = useState(false);
     const showImage = Boolean(product.image_url) && !imageFailed;
     const grid = layout === 'grid';
+    const canAdd = Boolean(onAdd) && !product.out_of_stock;
+    // Keeps the text clear of the add button where it can overlap it
+    const textPadding = canAdd && (grid || !showImage) ? 'pr-10' : '';
 
     const image = showImage && (
         <img src={product.image_url} alt={product.name} onError={() => setImageFailed(true)} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
@@ -60,11 +88,11 @@ export const ProductCard: React.FC<{ product: Product; onClick: () => void; layo
                             )}
                         </div>
                     )}
-                    <div className={`flex min-w-0 flex-1 flex-col ${grid ? 'p-3 sm:p-4' : ''}`}>
+                    <div className={`flex min-w-0 flex-1 flex-col ${grid ? 'p-3 sm:p-4' : ''} ${!grid ? textPadding : ''}`}>
                         <h3 className={`font-bold leading-snug text-[color:var(--store-text)] line-clamp-2 ${grid ? 'text-sm sm:text-base' : 'text-base sm:text-lg'}`}>{product.name}</h3>
                         {product.description && <p className={`mt-1 text-[color:var(--store-muted)] line-clamp-2 ${grid ? 'text-xs sm:text-sm' : 'text-sm'}`}>{product.description}</p>}
                         {(product.price > 0 || product.out_of_stock) && (
-                            <div className={`mt-auto flex flex-wrap items-center gap-2 ${grid ? 'pt-2' : 'pt-3'}`}>
+                            <div className={`mt-auto flex flex-wrap items-center gap-2 ${grid ? 'pt-2' : 'pt-3'} ${textPadding}`}>
                                 {product.price > 0 && <p className={`font-bold text-[color:var(--store-accent)] ${grid ? 'text-base sm:text-lg' : 'text-lg'}`}>${product.price.toLocaleString('es-CL')}{product.unit === 'kg' ? <span className="text-sm font-normal text-[color:var(--store-muted)]">/kg</span> : ''}</p>}
                                 {product.out_of_stock && <p className="text-xs font-medium text-[color:var(--store-muted)] bg-[color:var(--store-subtle)] px-2 py-0.5 rounded-full">No disponible</p>}
                             </div>
@@ -76,6 +104,20 @@ export const ProductCard: React.FC<{ product: Product; onClick: () => void; layo
                         </div>
                     )}
                 </button>
+                {canAdd && (
+                    <button
+                        type="button"
+                        onClick={onAdd}
+                        aria-label={orderQuantity > 0 ? `Agregar otro ${product.name} (${orderQuantity} en el pedido)` : `Agregar ${product.name} al pedido`}
+                        className={`absolute bottom-3 right-3 z-[2] flex h-9 min-w-[2.25rem] items-center justify-center rounded-full px-2 text-sm font-bold shadow-md transition-transform hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--store-text)] focus-visible:ring-offset-2 ${orderQuantity > 0
+                            ? 'bg-[color:var(--store-accent)] text-[color:var(--store-on-accent)]'
+                            : 'bg-[color:var(--store-card)] text-[color:var(--store-accent)] ring-1 ring-[color:var(--store-border)]'}`}
+                    >
+                        {orderQuantity > 0
+                            ? (product.unit === 'kg' ? `${orderQuantity.toLocaleString('es-CL', { maximumFractionDigits: 2 })} kg` : orderQuantity)
+                            : <span className="text-xl leading-none" aria-hidden="true">+</span>}
+                    </button>
+                )}
             </SpotlightCard>
         </div>
     );
@@ -99,6 +141,12 @@ const Store: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('Todos');
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+    // WhatsApp order: the table comes from the table's QR (?mesa=5)
+    const [searchParams] = useSearchParams();
+    const table = parseTable(searchParams.get('mesa'));
+    const [orderItems, setOrderItems] = useState<OrderItems>(() => (userId ? loadOrder(userId) : {}));
+    const [orderDetails, setOrderDetails] = useState<OrderDetails>({ name: '', note: '', table, fulfillment: 'pickup', address: '' });
+    const [orderOpen, setOrderOpen] = useState(false);
     
     const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
     const isClickScrolling = useRef(false);
@@ -240,6 +288,36 @@ const Store: React.FC = () => {
     };
 
     const displayCategories = Object.keys(productsByCategory);
+
+    // Orders are on only when the business turned them on with a valid number
+    const ordersTo = ordersNumber(profile);
+    const lines = useMemo(() => orderLines(orderItems, products), [orderItems, products]);
+    const itemCount = orderCount(lines);
+
+    // Drops products that left the store or ran out since the order was saved
+    useEffect(() => {
+        if (loading) return;
+        setOrderItems(items => {
+            const kept = Object.fromEntries(lines.map(({ product, quantity }) => [product.id, quantity]));
+            return Object.keys(kept).length === Object.keys(items).length ? items : kept;
+        });
+    }, [loading, products]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    useEffect(() => {
+        if (userId && !loading) saveOrder(userId, orderItems);
+    }, [userId, orderItems, loading]);
+
+    const updateQuantity = useCallback((product: Product, delta: number) => {
+        setOrderItems(items => changeQuantity(items, product, delta));
+    }, []);
+    const closeOrder = useCallback(() => setOrderOpen(false), []);
+    const clearOrder = useCallback(() => setOrderItems({}), []);
+
+    const sendOrder = () => {
+        if (!ordersTo) return;
+        const message = buildOrderMessage(profile?.business_name ?? '', lines, { ...orderDetails, table });
+        window.open(orderLink(ordersTo, message), '_blank', 'noopener,noreferrer');
+    };
     const themeStyle = useMemo(() => normalizeThemeStyle(theme), [theme]);
     const layout = supabaseService.storeLayoutOf(profile);
 
@@ -253,7 +331,7 @@ const Store: React.FC = () => {
     }
 
     return (
-        <div className="min-h-screen flex flex-col text-[color:var(--store-text)]" style={themeStyleVars(themeStyle)}>
+        <div className={`min-h-screen flex flex-col text-[color:var(--store-text)] ${ordersTo && itemCount > 0 ? 'pb-24' : ''}`} style={themeStyleVars(themeStyle)}>
             <header ref={headerRef} className="bg-[color:var(--store-card)] shadow-md sm:sticky sm:top-0 z-20">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center">
                     <h1 className="text-3xl font-bold text-[color:var(--store-accent)] sm:text-4xl">
@@ -314,7 +392,14 @@ const Store: React.FC = () => {
                                 {/* Cards slide in one after another as the section scrolls into view */}
                                 <AnimatedContent distance={24} duration={0.5} ease="power2.out" stagger={0.06} className={productGridClass(layout)}>
                                     {productsByCategory[category].map(product => (
-                                        <ProductCard key={product.id} product={product} layout={layout} onClick={() => setSelectedProduct(product)} />
+                                        <ProductCard
+                                            key={product.id}
+                                            product={product}
+                                            layout={layout}
+                                            onClick={() => setSelectedProduct(product)}
+                                            onAdd={ordersTo ? () => updateQuantity(product, 1) : undefined}
+                                            orderQuantity={orderItems[product.id] ?? 0}
+                                        />
                                     ))}
                                 </AnimatedContent>
                             </section>
@@ -374,6 +459,38 @@ const Store: React.FC = () => {
                 <ProductDetailModal 
                     product={selectedProduct} 
                     onClose={() => setSelectedProduct(null)} 
+                    onChangeQuantity={ordersTo ? (delta) => updateQuantity(selectedProduct, delta) : undefined}
+                    orderQuantity={orderItems[selectedProduct.id] ?? 0}
+                />
+            )}
+
+            {ordersTo && itemCount > 0 && !orderOpen && (
+                <div className="fixed inset-x-0 bottom-0 z-30 px-4 pb-4 sm:pb-6">
+                    <button
+                        type="button"
+                        onClick={() => setOrderOpen(true)}
+                        className="mx-auto flex w-full max-w-lg items-center justify-between gap-3 rounded-full bg-[color:var(--store-accent)] py-3 pl-5 pr-3 text-[color:var(--store-on-accent)] shadow-2xl transition-transform hover:-translate-y-0.5 focus:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--store-accent-soft)]"
+                    >
+                        <span className="flex min-w-0 items-center gap-2 whitespace-nowrap font-semibold">
+                            <WhatsAppIcon />
+                            Ver pedido
+                            <span className="rounded-full bg-black/15 px-2 py-0.5 text-sm" aria-label={`${itemCount} ${itemCount === 1 ? 'producto' : 'productos'}`}>{itemCount}</span>
+                        </span>
+                        {orderTotal(lines) > 0 && <span className="whitespace-nowrap font-bold">{formatPrice(orderTotal(lines))}</span>}
+                    </button>
+                </div>
+            )}
+
+            {ordersTo && orderOpen && (
+                <OrderSheet
+                    lines={lines}
+                    details={{ ...orderDetails, table }}
+                    onDetailsChange={changes => setOrderDetails(prev => ({ ...prev, ...changes }))}
+                    delivery={profile?.orders_delivery === true}
+                    onChangeQuantity={updateQuantity}
+                    onClear={clearOrder}
+                    onSend={sendOrder}
+                    onClose={closeOrder}
                 />
             )}
         </div>

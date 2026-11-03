@@ -2,13 +2,21 @@ import React, { useEffect, useState } from 'react';
 import { Product } from '../types.ts';
 import { CloseIcon } from './Icons.tsx';
 import BlurText from './reactbits/BlurText.tsx';
+import { formatQuantity } from './storeOrder.ts';
 
 interface ProductDetailModalProps {
     product: Product;
     onClose: () => void;
+    // Present only when the store takes orders: adds (1) or removes (-1) one step of the product
+    onChangeQuantity?: (delta: number) => void;
+    orderQuantity?: number;
 }
 
-const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClose }) => {
+const stepButtonClass =
+    'flex h-10 w-10 items-center justify-center rounded-full bg-[color:var(--store-subtle)] text-xl font-semibold leading-none text-[color:var(--store-text)] ' +
+    'transition-colors hover:bg-[color:var(--store-border)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--store-accent)]';
+
+const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClose, onChangeQuantity, orderQuantity = 0 }) => {
     const [isVisible, setIsVisible] = useState(false);
     const [imageFailed, setImageFailed] = useState(false);
     // Without an image the dialog shows only the details, in a narrower box
@@ -66,6 +74,25 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                         <div className="mt-auto flex justify-between items-center gap-4 pt-4 border-t border-[color:var(--store-border)]">
                             {product.price > 0 && <p className="text-3xl font-bold text-[color:var(--store-accent)]">${product.price.toLocaleString('es-CL')}{product.unit === 'kg' ? <span className="text-xl font-normal text-[color:var(--store-muted)]">/kg</span> : ''}</p>}
                             {product.out_of_stock && <p className="text-md font-medium text-[color:var(--store-muted)] bg-[color:var(--store-subtle)] px-3 py-1 rounded-full">No disponible</p>}
+                        </div>
+                    )}
+
+                    {onChangeQuantity && !product.out_of_stock && (
+                        <div className="mt-6">
+                            {orderQuantity > 0 ? (
+                                <div className="flex items-center justify-between gap-4 rounded-full bg-[color:var(--store-accent-soft)] p-1.5 pl-5">
+                                    <span className="text-sm font-semibold text-[color:var(--store-text)]">En tu pedido</span>
+                                    <div className="flex items-center gap-2">
+                                        <button type="button" onClick={() => onChangeQuantity(-1)} className={stepButtonClass} aria-label="Quitar uno">−</button>
+                                        <span className="min-w-[3.5rem] text-center font-bold tabular-nums text-[color:var(--store-text)]" aria-live="polite">{formatQuantity(product, orderQuantity)}</span>
+                                        <button type="button" onClick={() => onChangeQuantity(1)} className={stepButtonClass} aria-label="Agregar uno">+</button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <button type="button" onClick={() => onChangeQuantity(1)} className="w-full rounded-full bg-[color:var(--store-accent)] px-5 py-3 font-semibold text-[color:var(--store-on-accent)] shadow transition-transform hover:-translate-y-0.5">
+                                    Agregar al pedido
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>
