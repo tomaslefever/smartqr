@@ -73,13 +73,13 @@ export interface Profile {
   // Whether the business delivers; otherwise orders are for pickup (or for the table)
   orders_delivery?: boolean;
   // Loyalty program (stamp card); all missing before supabase/loyalty.sql. Turning it on needs a
-  // WhatsApp connection (a database trigger checks it).
+  // WhatsApp connection, the approver number and a reward (a database trigger checks them).
   loyalty_enabled?: boolean;
   // Stamps needed for the reward
   loyalty_goal?: number;
   loyalty_reward?: string | null;
-  // Connected WhatsApp number (digits) where customers write "sellos"; set by the database
-  loyalty_whatsapp?: string | null;
+  // The business's WhatsApp (digits) that gets each stamp request with Validate / Reject buttons
+  loyalty_approver_whatsapp?: string | null;
 }
 
 // The business's WhatsApp Business (Cloud API) number, as the panel sees it: the access token stays on
@@ -97,7 +97,7 @@ export interface WhatsAppConnection {
   updated_at?: string;
 }
 
-// A customer of the loyalty program, identified by their WhatsApp number
+// A customer of the loyalty program, identified by their phone number
 export interface LoyaltyCustomer {
   id: number;
   // Country code and digits, e.g. 56912345678
@@ -107,11 +107,23 @@ export interface LoyaltyCustomer {
   stamps: number;
   total_stamps: number;
   rewards_redeemed: number;
-  // 'whatsapp': joined by writing to the business; 'panel': added by the business
-  source: 'panel' | 'whatsapp';
-  // Last message from the customer; free-form replies are only allowed within 24 hours of it
-  last_message_at: string | null;
+  // 'landing': joined by asking for a stamp; 'panel': added by the business
+  source: 'panel' | 'landing' | 'whatsapp';
   created_at: string;
+}
+
+// A stamp asked for on the loyalty landing, waiting for the business to validate it
+export interface LoyaltyStampRequest {
+  id: number;
+  customer_id: number;
+  status: 'pending' | 'approved' | 'rejected' | 'expired';
+  created_at: string;
+  decided_at: string | null;
+  decided_via: 'whatsapp' | 'panel' | null;
+  // How the business was told: buttons inside the 24-hour window, the template outside it
+  notify_mode: 'interactive' | 'template' | null;
+  notify_error: string | null;
+  customer?: Pick<LoyaltyCustomer, 'name' | 'phone' | 'stamps'> | null;
 }
 
 // 'list': one column of horizontal cards, image on the right. 'grid': two columns on phones (more on

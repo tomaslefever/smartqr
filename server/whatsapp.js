@@ -1,5 +1,6 @@
 // WhatsApp Business (Cloud API de Meta) para SmartQR: conexión manual del número de cada negocio, webhook
-// que recibe sus mensajes y avisos del sistema de lealtad. Solo usa módulos nativos de Node.
+// que recibe sus mensajes y validación de sellos del sistema de lealtad: el cliente pide el sello en la
+// landing y el comercio lo valida con un botón en WhatsApp. Solo usa módulos nativos de Node.
 //
 // Variables de entorno (en .env o en el entorno del contenedor):
 //   META_APP_ID                 ID de la app de Meta de SmartQR (para comprobar que el token es de esta app)
@@ -12,7 +13,9 @@
 //   GET  /api/whatsapp/webhook   Verificación del webhook (hub.challenge)
 //   POST /api/whatsapp/webhook   Mensajes entrantes, firmados por Meta
 //   POST /api/whatsapp/connect   Guarda las credenciales del negocio (sesión del panel)
-//   POST /api/loyalty/notify     Avisa por WhatsApp a un cliente de sus sellos (sesión del panel)
+//   POST /api/loyalty/request    Pide un sello desde la landing (pública, limitada por IP) y avisa al comercio
+//   GET  /api/loyalty/template   Estado de la plantilla de validación en Meta (sesión del panel)
+//   POST /api/loyalty/template   Crea esa plantilla en el WABA del negocio (sesión del panel)
 import crypto from 'node:crypto';
 
 const env = (name) => (process.env[name] || '').trim();
@@ -130,14 +133,16 @@ const authenticate = async (req) => {
     return user;
 };
 
+const CONNECTION_FIELDS = 'user_id,phone_number_id,waba_id,access_token,approver_last_message_at';
+
 const connectionOfUser = async (userId) =>
-    firstRow(await supabaseRest(`whatsapp_connections?user_id=eq.${encodeURIComponent(userId)}&select=user_id,phone_number_id,access_token`));
+    firstRow(await supabaseRest(`whatsapp_connections?user_id=eq.${encodeURIComponent(userId)}&select=${CONNECTION_FIELDS}`));
 
 const connectionOfNumber = async (phoneNumberId) =>
-    firstRow(await supabaseRest(`whatsapp_connections?phone_number_id=eq.${encodeURIComponent(phoneNumberId)}&select=user_id,phone_number_id,access_token`));
+    firstRow(await supabaseRest(`whatsapp_connections?phone_number_id=eq.${encodeURIComponent(phoneNumberId)}&select=${CONNECTION_FIELDS}`));
 
 const loyaltyProfile = async (userId) =>
-    firstRow(await supabaseRest(`profiles?id=eq.${encodeURIComponent(userId)}&select=business_name,loyalty_enabled,loyalty_goal,loyalty_reward`));
+    firstRow(await supabaseRest(`profiles?id=eq.${encodeURIComponent(userId)}&select=business_name,loyalty_enabled,loyalty_goal,loyalty_approver_whatsapp`));
 
 // --- Graph API de Meta ---
 
@@ -157,18 +162,18 @@ const graph = async (path, { token, method = 'GET', body } = {}) => {
 const graphError = (result) =>
     result.data?.error?.error_user_msg || result.data?.error?.message || `Meta respondió ${result.status}`;
 
-const sendText = async (connection, to, text) => {
+// Sends a message from the connected number; returns its id in Meta or the error
+const sendMessage = async (connection, to, message) => {
     const result = await graph(`${connection.phone_number_id}/messages`, {
         token: connection.access_token,
         method: 'POST',
-        body: { messaging_product: 'whatsapp', recipient_type: 'individual', to, type: 'text', text: { body: text, preview_url: false } },
+        body: { messaging_product: 'whatsapp', recipient_type: 'individual', to, ...message },
     });
-    if (result.ok) return { sent: true };
-    // 131047: pasaron más de 24 horas desde el último mensaje del cliente; solo se puede escribir con plantillas
-    const code = result.data?.error?.code;
-    if (code === 131047) return { sent: false, reason: 'window' };
-    return { sent: false, reason: 'error', message: graphError(result) };
+    if (result.ok) return { sent: true, id: result.data?.messages?.[0]?.id ?? null };
+    return { sent: false, error: graphError(result) };
 };
+
+const sendText = (connection, to, text) => sendMessage(connection, to, { type: 'text', text: { body: text, preview_url: false } });
 
 // --- Webhook ---
 
@@ -190,41 +195,125 @@ const verifyWebhook = (req, res, url) => {
     return sendPlain(res, 403, 'Forbidden');
 };
 
-// "sellos", "mis puntos", "Hola, quiero ver mis SELLOS"...
-const normalize = (text) => text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-export const asksForLoyalty = (text) => /\b(sellos?|puntos?|lealtad)\b/.test(normalize(text || ''));
+// --- Validación de sellos ---
 
-const firstName = (name) => (name || '').trim().split(/\s+/)[0] || '';
+// Plantilla con la que se le escribe al comercio fuera de la ventana de 24 horas. La crea el panel en el
+// WABA de cada negocio (POST /api/loyalty/template); Meta la revisa antes de dejar usarla.
+export const STAMP_TEMPLATE = {
+    name: 'smartqr_validar_sello',
+    language: 'es',
+    category: 'UTILITY',
+    body: 'Solicitud de sello: {{1}} pide un sello y lleva {{2}} de {{3}}. Valídalo solo si compró en tu local.',
+    example: ['Pedro (+56987654321)', '3', '8'],
+    buttons: ['Validar sello', 'Rechazar'],
+};
 
-const stampBar = (stamps, goal) => '●'.repeat(Math.min(stamps, goal)) + '○'.repeat(Math.max(goal - stamps, 0));
+// WhatsApp deja escribir libremente hasta 24 horas después del último mensaje; se deja un margen
+const WINDOW_MS = 23.5 * 60 * 60 * 1000;
 
-export const loyaltyMessage = (event, customer, profile) => {
-    const business = (profile.business_name || '').trim() || 'el local';
-    const goal = profile.loyalty_goal;
-    const reward = (profile.loyalty_reward || '').trim();
-    const name = firstName(customer.name);
-    const hello = name ? `¡Hola, ${name}!` : '¡Hola!';
-    const stamps = customer.stamps;
-    const complete = stamps >= goal;
-    const progress = `${stampBar(stamps, goal)}\nLlevas ${stamps} de ${goal} sellos.`;
-    const claim = `Completaste tu tarjeta 🎉 Muestra este mensaje en ${business} para canjear: ${reward}.`;
-    const missing = `Te ${goal - stamps === 1 ? 'falta 1 sello' : `faltan ${goal - stamps} sellos`} para: ${reward}.`;
+const STAMP_PAYLOAD = /^stamp:(approve|reject):(\d+)$/;
 
-    if (event === 'stamp') {
-        return [`${hello} Sumaste un sello en ${business}.`, '', progress, complete ? claim : missing].join('\n');
+// Mexico's wa_id carries a 1 after the country code (521...) that people do not write
+const comparableNumber = (number) => String(number ?? '').replace(/\D/g, '').replace(/^521(\d{10})$/, '52$1');
+export const sameNumber = (a, b) => !!comparableNumber(a) && comparableNumber(a) === comparableNumber(b);
+
+const stampButtons = (requestId) => [`stamp:approve:${requestId}`, `stamp:reject:${requestId}`];
+
+const interactiveRequest = (requestId, business, label, stamps, goal) => ({
+    type: 'interactive',
+    interactive: {
+        type: 'button',
+        body: { text: `Solicitud de sello en ${business}: ${label} pide un sello y lleva ${stamps} de ${goal}. Valídalo solo si compró en tu local.` },
+        action: {
+            buttons: stampButtons(requestId).map((id, i) => ({ type: 'reply', reply: { id, title: STAMP_TEMPLATE.buttons[i] } })),
+        },
+    },
+});
+
+const templateRequest = (requestId, label, stamps, goal) => ({
+    type: 'template',
+    template: {
+        name: STAMP_TEMPLATE.name,
+        language: { code: STAMP_TEMPLATE.language },
+        components: [
+            { type: 'body', parameters: [label, String(stamps), String(goal)].map(text => ({ type: 'text', text })) },
+            ...stampButtons(requestId).map((payload, index) => ({
+                type: 'button', sub_type: 'quick_reply', index: String(index), parameters: [{ type: 'payload', payload }],
+            })),
+        ],
+    },
+});
+
+const saveNotice = (requestId, mode, result) => supabaseRest(`loyalty_stamp_requests?id=eq.${requestId}`, {
+    method: 'PATCH',
+    body: { notify_mode: mode, notify_message_id: result.id ?? null, notify_error: result.sent ? null : result.error },
+    prefer: 'return=minimal',
+});
+
+// Le escribe al comercio para que valide la solicitud: con botones si está dentro de las 24 horas, con la
+// plantilla si no
+const notifyApprover = async (connection, profile, request) => {
+    const business = (profile.business_name || '').trim() || 'tu local';
+    const lastMessage = connection.approver_last_message_at ? Date.parse(connection.approver_last_message_at) : 0;
+    const inWindow = Date.now() - lastMessage < WINDOW_MS;
+    const mode = inWindow ? 'interactive' : 'template';
+    const message = inWindow
+        ? interactiveRequest(request.request_id, business, request.customer_label, request.stamps, request.goal)
+        : templateRequest(request.request_id, request.customer_label, request.stamps, request.goal);
+    const result = await sendMessage(connection, profile.loyalty_approver_whatsapp, message);
+    await saveNotice(request.request_id, mode, result);
+    return result;
+};
+
+// Meta acepta el mensaje con botones y avisa después, por el webhook, que no se entregó porque la ventana
+// de 24 horas estaba cerrada (131047). Entonces se reenvía con la plantilla.
+const resendAsTemplate = async (connection, messageId) => {
+    const request = firstRow(await supabaseRest(
+        `loyalty_stamp_requests?notify_message_id=eq.${encodeURIComponent(messageId)}&notify_mode=eq.interactive&status=eq.pending` +
+        '&select=id,user_id,customer:loyalty_customers(name,phone,stamps)',
+    ));
+    if (!request || request.user_id !== connection.user_id) return;
+    const profile = await loyaltyProfile(connection.user_id);
+    if (!profile?.loyalty_enabled || !profile.loyalty_approver_whatsapp) return;
+    const label = `${request.customer?.name ? `${request.customer.name} ` : ''}(+${request.customer?.phone})`;
+    const result = await sendMessage(connection, profile.loyalty_approver_whatsapp,
+        templateRequest(request.id, label, request.customer?.stamps ?? 0, profile.loyalty_goal));
+    await saveNotice(request.id, 'template', result);
+};
+
+const decisionReply = (decision, approve) => {
+    if (!decision) return 'No encontré esa solicitud.';
+    const { status, changed, customer_label: label, stamps, goal } = decision;
+    if (status === 'expired') return `La solicitud de ${label} venció: pasaron más de 24 horas.`;
+    if (!changed) return `La solicitud de ${label} ya estaba ${status === 'approved' ? 'validada' : 'rechazada'}.`;
+    if (!approve) return `❌ Rechazaste la solicitud de ${label}.`;
+    const complete = stamps >= goal ? ' Completó la tarjeta: ya puede canjear su premio.' : '';
+    return `✅ Sello validado para ${label}. Lleva ${stamps} de ${goal}.${complete}`;
+};
+
+// A message from the business's approver number: keeps the 24-hour window open and, if it is a button
+// reply, decides the request
+const handleApproverMessage = async (connection, message) => {
+    await supabaseRest(`whatsapp_connections?user_id=eq.${encodeURIComponent(connection.user_id)}`, {
+        method: 'PATCH',
+        body: { approver_last_message_at: new Date().toISOString() },
+        prefer: 'return=minimal',
+    });
+    const payload = message.interactive?.button_reply?.id ?? message.button?.payload ?? '';
+    const match = STAMP_PAYLOAD.exec(payload);
+    if (!match) return;
+    const approve = match[1] === 'approve';
+    let decision = null;
+    try {
+        decision = firstRow(await supabaseRest('rpc/loyalty_decide_request', {
+            method: 'POST',
+            body: { owner: connection.user_id, request: Number(match[2]), approve, via: 'whatsapp' },
+        }));
+    } catch (error) {
+        if (error.code !== 'P0002') throw error;
     }
-    if (event === 'redeem') {
-        return [`${hello} Canjeaste tu premio en ${business}: ${reward}. ¡Que lo disfrutes!`, '', `Tu tarjeta sigue: llevas ${stamps} de ${goal} sellos.`].join('\n');
-    }
-    if (customer.total_stamps === 0 && customer.rewards_redeemed === 0) {
-        return [
-            `${hello} Ya estás en el programa de sellos de ${business}.`,
-            '',
-            `Cada compra suma un sello. Con ${goal} sellos te llevas: ${reward}.`,
-            'Escribe "sellos" cuando quieras para ver cuántos llevas.',
-        ].join('\n');
-    }
-    return [`${hello} Así va tu tarjeta en ${business}:`, '', progress, complete ? claim : missing].join('\n');
+    const result = await sendText(connection, message.from, decisionReply(decision, approve));
+    if (!result.sent) console.warn('Webhook de WhatsApp: no se pudo confirmar la decisión al comercio:', result.error);
 };
 
 const handleIncoming = async (payload) => {
@@ -240,7 +329,7 @@ const handleIncoming = async (payload) => {
             if (change?.field !== 'messages') continue;
             const value = change.value ?? {};
             const phoneNumberId = value.metadata?.phone_number_id;
-            if (!phoneNumberId || !Array.isArray(value.messages)) continue;
+            if (!phoneNumberId) continue;
 
             if (!connections.has(phoneNumberId)) connections.set(phoneNumberId, await connectionOfNumber(phoneNumberId));
             const connection = connections.get(phoneNumberId);
@@ -248,23 +337,20 @@ const handleIncoming = async (payload) => {
                 console.warn(`Webhook de WhatsApp: ningún negocio tiene el número ${phoneNumberId}`);
                 continue;
             }
+
+            for (const status of value.statuses ?? []) {
+                if (status?.status === 'failed' && (status.errors ?? []).some(e => e?.code === 131047)) {
+                    await resendAsTemplate(connection, status.id);
+                }
+            }
+
+            if (!Array.isArray(value.messages) || !value.messages.length) continue;
             if (!profiles.has(connection.user_id)) profiles.set(connection.user_id, await loyaltyProfile(connection.user_id));
             const profile = profiles.get(connection.user_id);
-            if (!profile?.loyalty_enabled) continue;
-
-            const names = new Map((value.contacts ?? []).map(c => [c.wa_id, c.profile?.name ?? '']));
+            // Solo cuenta lo que escribe el comercio desde su número de validación
             for (const message of value.messages) {
-                const from = message?.from;
-                if (!from) continue;
-                const text = message.text?.body ?? message.button?.text ?? message.interactive?.button_reply?.title ?? '';
-                const join = asksForLoyalty(text);
-                const customer = firstRow(await supabaseRest('rpc/loyalty_whatsapp_message', {
-                    method: 'POST',
-                    body: { owner: connection.user_id, customer_phone: from, customer_name: names.get(from) ?? '', join_program: join },
-                }));
-                if (join && customer) {
-                    const result = await sendText(connection, from, loyaltyMessage('balance', customer, profile));
-                    if (!result.sent) console.warn(`Webhook de WhatsApp: no se pudo responder a ${from}:`, result.message ?? result.reason);
+                if (message?.from && sameNumber(message.from, profile?.loyalty_approver_whatsapp)) {
+                    await handleApproverMessage(connection, message);
                 }
             }
         }
@@ -387,26 +473,109 @@ const connect = async (req, res) => {
     return sendJson(res, 200, { connection, warnings });
 };
 
-// --- Avisos del sistema de lealtad ---
+// --- Solicitudes de sello desde la landing ---
 
-const notifyLoyalty = async (req, res) => {
+// Limits requests per IP in memory (one server process): enough to keep a script from flooding a business
+const hits = new Map();
+const allow = (key, max, windowMs) => {
+    const now = Date.now();
+    if (hits.size > 10000) hits.clear();
+    const recent = (hits.get(key) ?? []).filter(t => now - t < windowMs);
+    if (recent.length >= max) {
+        hits.set(key, recent);
+        return false;
+    }
+    recent.push(now);
+    hits.set(key, recent);
+    return true;
+};
+
+const clientIp = (req) => String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() || req.socket.remoteAddress || '';
+
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const requestStamp = async (req, res) => {
+    requireServer();
+    if (!allow(`stamp:${clientIp(req)}`, 10, 10 * 60 * 1000)) {
+        throw new HttpError(429, 'Hiciste muchas solicitudes seguidas. Inténtalo en unos minutos.');
+    }
+    const body = await readJson(req);
+    const store = String(body.store ?? '');
+    const phone = String(body.phone ?? '').slice(0, 30);
+    const name = String(body.name ?? '').slice(0, 80);
+    if (!uuidPattern.test(store)) throw new HttpError(400, 'Local inválido.');
+
+    let request;
+    try {
+        request = firstRow(await supabaseRest('rpc/loyalty_request_stamp', {
+            method: 'POST',
+            body: { store, customer_phone: phone, customer_name: name },
+        }));
+    } catch (error) {
+        // Mensajes de la base pensados para el cliente (número inválido, programa apagado...)
+        if (['P0001', 'P0002', '22023'].includes(error.code)) throw new HttpError(400, error.message);
+        throw error;
+    }
+    if (!request) throw new HttpError(500, 'No se pudo crear la solicitud.');
+
+    // Una solicitud repetida (la misma pendiente) no vuelve a escribirle al comercio
+    if (request.is_new) {
+        try {
+            const connection = await connectionOfUser(store);
+            const profile = await loyaltyProfile(store);
+            if (connection && profile?.loyalty_approver_whatsapp) {
+                const result = await notifyApprover(connection, profile, request);
+                if (!result.sent) console.warn(`Sellos: no se pudo avisar al comercio ${store}:`, result.error);
+            }
+        } catch (error) {
+            // La solicitud queda pendiente igual: el comercio la ve en el panel
+            console.error('Sellos: error avisando al comercio:', error);
+        }
+    }
+    return sendJson(res, 200, { token: request.request_token, card_token: request.card_token });
+};
+
+// --- Plantilla de validación ---
+
+const templateStatus = async (connection) => {
+    const result = await graph(
+        `${connection.waba_id}/message_templates?name=${STAMP_TEMPLATE.name}&fields=name,status,language,rejected_reason`,
+        { token: connection.access_token },
+    );
+    if (!result.ok) throw new HttpError(502, `No se pudo consultar la plantilla en Meta: ${graphError(result)}`);
+    const template = (result.data?.data ?? []).find(t => t.name === STAMP_TEMPLATE.name && t.language === STAMP_TEMPLATE.language);
+    return { name: STAMP_TEMPLATE.name, status: template?.status ?? null, rejected_reason: template?.rejected_reason ?? null };
+};
+
+const panelConnection = async (req) => {
     requireServer();
     const user = await authenticate(req);
-    const body = await readJson(req);
-    const customerId = Number(body.customer_id);
-    const event = ['stamp', 'redeem', 'balance'].includes(body.event) ? body.event : 'balance';
-    if (!Number.isSafeInteger(customerId) || customerId <= 0) throw new HttpError(400, 'Cliente inválido.');
-
-    const customer = firstRow(await supabaseRest(
-        `loyalty_customers?id=eq.${customerId}&user_id=eq.${encodeURIComponent(user.id)}&select=id,phone,name,stamps,total_stamps,rewards_redeemed`,
-    ));
-    if (!customer) throw new HttpError(404, 'Cliente no encontrado.');
-    const profile = await loyaltyProfile(user.id);
-    if (!profile?.loyalty_enabled) throw new HttpError(409, 'El sistema de lealtad está apagado.');
     const connection = await connectionOfUser(user.id);
-    if (!connection) throw new HttpError(409, 'Conecta WhatsApp para avisar a tus clientes.');
+    if (!connection) throw new HttpError(409, 'Conecta WhatsApp primero.');
+    return connection;
+};
 
-    return sendJson(res, 200, await sendText(connection, customer.phone, loyaltyMessage(event, customer, profile)));
+const getTemplate = async (req, res) => sendJson(res, 200, await templateStatus(await panelConnection(req)));
+
+const createTemplate = async (req, res) => {
+    const connection = await panelConnection(req);
+    const current = await templateStatus(connection);
+    if (current.status && current.status !== 'REJECTED') return sendJson(res, 200, current);
+    const result = await graph(`${connection.waba_id}/message_templates`, {
+        token: connection.access_token,
+        method: 'POST',
+        body: {
+            name: STAMP_TEMPLATE.name,
+            language: STAMP_TEMPLATE.language,
+            category: STAMP_TEMPLATE.category,
+            components: [
+                { type: 'BODY', text: STAMP_TEMPLATE.body, example: { body_text: [STAMP_TEMPLATE.example] } },
+                { type: 'BUTTONS', buttons: STAMP_TEMPLATE.buttons.map(text => ({ type: 'QUICK_REPLY', text })) },
+            ],
+        },
+    });
+    if (!result.ok) throw new HttpError(502, `Meta no aceptó la plantilla: ${graphError(result)}`);
+    return sendJson(res, 200, { name: STAMP_TEMPLATE.name, status: result.data?.status ?? 'PENDING', rejected_reason: null });
 };
 
 // --- Router ---
@@ -420,7 +589,9 @@ export const handleApi = async (req, res, url) => {
         if (route === 'GET /api/whatsapp/webhook') verifyWebhook(req, res, url);
         else if (route === 'POST /api/whatsapp/webhook') await receiveWebhook(req, res);
         else if (route === 'POST /api/whatsapp/connect') await connect(req, res);
-        else if (route === 'POST /api/loyalty/notify') await notifyLoyalty(req, res);
+        else if (route === 'POST /api/loyalty/request') await requestStamp(req, res);
+        else if (route === 'GET /api/loyalty/template') await getTemplate(req, res);
+        else if (route === 'POST /api/loyalty/template') await createTemplate(req, res);
         else sendJson(res, 404, { error: 'No encontrado.' });
     } catch (error) {
         if (res.headersSent) {

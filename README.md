@@ -68,7 +68,10 @@ Otros comandos:
 El menú **WhatsApp** del panel reúne la conexión del número del negocio y sus funciones, que se activan por separado:
 
 - **Pedir por WhatsApp** (sin API): los clientes arman su pedido en la carta y se abre WhatsApp con el mensaje para el número que indiques. Es un link `wa.me`: el pedido llega como un mensaje directo y el negocio lo atiende desde la app de su teléfono. Por eso no conviene usar el número conectado a la Cloud API, que deja de funcionar en la app (el panel lo advierte).
-- **Sistema de lealtad** (con API, menú propio): una tarjeta de sellos. Se puede entrar siempre, pero para activarlo hay que tener WhatsApp conectado (la base de datos lo exige). Los clientes se inscriben escribiendo "sellos" al número conectado (la carta muestra un botón que lo deja escrito). El webhook los registra con su número y les responde cuántos sellos llevan. El negocio les suma sellos y canjea premios desde el panel, y cada movimiento les llega por WhatsApp. Desconectar WhatsApp apaga el programa.
+- **Sistema de lealtad** (con API, menú propio): una tarjeta de sellos validada por el comercio. Se puede entrar siempre, pero para activarlo hacen falta tres cosas, y la base de datos lo exige: WhatsApp conectado, el *WhatsApp que valida los sellos* (el celular del local, distinto del número conectado) y un premio. Desconectar WhatsApp apaga el programa.
+  1. El cliente escanea el **QR para la caja** (o el botón de la carta) y llega a la landing `#/sellos/<negocio>`. Pone su celular y pide el sello.
+  2. Desde el número conectado le llega al comercio un WhatsApp con el cliente, sus sellos y los botones **Validar sello** / **Rechazar**. Si el comercio no le ha escrito a ese número en las últimas 24 horas, el mensaje va como la plantilla `smartqr_validar_sello`. Esa plantilla se crea desde el panel y Meta tiene que aprobarla.
+  3. El botón llega al webhook, que valida la solicitud y suma el sello. La landing lo muestra al instante. El comercio también puede decidir en el panel (Solicitudes), sumar sellos a mano y marcar canjes. Cada cliente tiene un link personal a su tarjeta.
 - **Agente de WhatsApp**: el agente de [smart-qr-mcp](#servidor-mcp) para cambiar la carta por chat.
 
 ### Configurar la app de Meta (una vez)
@@ -88,7 +91,7 @@ En el panel: **WhatsApp → Configurar manualmente**, con el Phone Number ID, el
 
 Ojo: un número registrado en la Cloud API deja de funcionar en la app WhatsApp Business del teléfono, salvo que esté en modo coexistencia.
 
-WhatsApp solo deja enviar mensajes libres hasta 24 horas después del último mensaje del cliente. Pasado ese plazo el sello se suma igual, pero el aviso no se envía, y el panel lo indica.
+WhatsApp solo deja enviar mensajes libres (con botones) hasta 24 horas después del último mensaje de quien los recibe. Por eso las solicitudes de sello le llegan al comercio como plantilla cuando no le ha escrito al número conectado en ese plazo. Si Meta rechaza un mensaje con botones por la ventana (error 131047), el servidor lo reenvía como plantilla. Si el aviso no sale, la solicitud queda pendiente en el panel.
 
 ## Servidor MCP
 

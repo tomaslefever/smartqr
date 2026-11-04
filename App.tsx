@@ -6,6 +6,7 @@ import Store from './components/Store.tsx';
 import StoreStylePage from './components/StoreStylePage.tsx';
 import WhatsAppPage from './components/WhatsAppPage.tsx';
 import LoyaltyPage from './components/LoyaltyPage.tsx';
+import LoyaltyLanding from './components/LoyaltyLanding.tsx';
 import AppShell from './components/AppShell.tsx';
 import Login from './components/auth/Login.tsx';
 import Register from './components/auth/Register.tsx';
@@ -26,6 +27,7 @@ const App: React.FC = () => {
               <Route path="/register" element={<Register />} />
             </Route>
             <Route path="/store/:userId" element={<Store />} />
+            <Route path="/sellos/:userId" element={<LoyaltyLanding />} />
             <Route
               element={
                 <PrivateRoute>

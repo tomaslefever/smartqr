@@ -1,9 +1,9 @@
 import { supabase } from './supabaseClient.ts';
-import { LoyaltyCustomer, Profile, WhatsAppConnection } from '../types.ts';
+import { LoyaltyCustomer, LoyaltyStampRequest, Profile, WhatsAppConnection } from '../types.ts';
 
 // WhatsApp Business connection (supabase/whatsapp-cloud.sql), the WhatsApp features of the store and the
-// loyalty program (supabase/loyalty.sql). Saving credentials and messaging customers go through server.js
-// (/api/...), which holds the Meta app secret and the service key; the rest is Supabase with the session.
+// loyalty program (supabase/loyalty.sql). Saving credentials, stamp requests and the validation template go
+// through server.js (/api/...), which holds the Meta app secret and the service key; the rest is Supabase.
 
 // Thrown when a migration has not run, so pages can say which one instead of failing
 export class SchemaMissing extends Error {
@@ -89,7 +89,7 @@ const updateOwnProfile = async (changes: Partial<Profile>, migration: string): P
 export const saveOrdersSettings = (settings: Pick<Profile, 'orders_enabled' | 'orders_whatsapp' | 'orders_delivery'>) =>
     updateOwnProfile(settings, 'whatsapp-orders.sql');
 
-export const saveLoyaltySettings = (settings: Pick<Profile, 'loyalty_enabled' | 'loyalty_goal' | 'loyalty_reward'>) =>
+export const saveLoyaltySettings = (settings: Pick<Profile, 'loyalty_enabled' | 'loyalty_goal' | 'loyalty_reward' | 'loyalty_approver_whatsapp'>) =>
     updateOwnProfile(settings, 'loyalty.sql');
 
 // --- Loyalty customers ---
@@ -125,22 +125,103 @@ export const deleteLoyaltyCustomer = async (id: number): Promise<void> => {
     if (error) throw new Error(error.message);
 };
 
-export type LoyaltyNotice = 'stamp' | 'redeem' | 'balance';
+// --- Stamp requests (the business validates them by WhatsApp or here) ---
 
-// sent: false with reason 'window' when the customer has not written in the last 24 hours (WhatsApp only
-// allows approved templates then)
-export interface NotifyResult {
-    sent: boolean;
-    reason?: 'window' | 'error';
-    message?: string;
+// Pending ones, plus the ones decided in the last day so the panel shows what just happened
+export const getStampRequests = async (): Promise<LoyaltyStampRequest[]> => {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await client()
+        .from('loyalty_stamp_requests')
+        .select('id, customer_id, status, created_at, decided_at, decided_via, notify_mode, notify_error, customer:loyalty_customers(name, phone, stamps)')
+        .or(`status.eq.pending,decided_at.gte.${since}`)
+        .order('created_at', { ascending: false })
+        .limit(50);
+    if (isMissing(error)) throw new SchemaMissing('loyalty.sql');
+    if (error) throw new Error(error.message);
+    return (data ?? []) as unknown as LoyaltyStampRequest[];
+};
+
+export interface StampDecision {
+    status: LoyaltyStampRequest['status'];
+    changed: boolean;
+    stamps: number;
+    goal: number;
 }
 
-export const notifyLoyaltyCustomer = (id: number, event: LoyaltyNotice) =>
-    callApi<NotifyResult>('/api/loyalty/notify', { customer_id: id, event });
+export const decideStampRequest = async (id: number, approve: boolean): Promise<StampDecision> => {
+    const { data, error } = await client().rpc('decide_loyalty_stamp_request', { request: id, approve });
+    if (error) throw new Error(error.message);
+    return (Array.isArray(data) ? data[0] : data) as StampDecision;
+};
 
-// WhatsApp lets businesses send free-form messages until 24 hours after the customer's last message
-export const canMessage = (customer: LoyaltyCustomer, now = Date.now()) =>
-    !!customer.last_message_at && now - new Date(customer.last_message_at).getTime() < 24 * 60 * 60 * 1000;
+// --- Validation template (Meta reviews it before it can be used) ---
+
+export interface TemplateStatus {
+    name: string;
+    // APPROVED, PENDING, REJECTED... or null when it does not exist yet
+    status: string | null;
+    rejected_reason: string | null;
+}
+
+const getApi = async <T>(path: string): Promise<T> => {
+    const { data: { session } } = await client().auth.getSession();
+    if (!session) throw new Error('Tu sesión venció. Vuelve a iniciar sesión.');
+    const res = await fetch(path, { headers: { Authorization: `Bearer ${session.access_token}` } });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.error || `El servidor respondió ${res.status}.`);
+    return data as T;
+};
+
+export const getTemplateStatus = () => getApi<TemplateStatus>('/api/loyalty/template');
+
+export const createTemplate = () => callApi<TemplateStatus>('/api/loyalty/template', {});
+
+// --- Loyalty landing (public) ---
+
+// The customer asks for a stamp; the business gets it by WhatsApp. Public: no session.
+export const requestStamp = async (store: string, phone: string, name: string) => {
+    let res: Response;
+    try {
+        res = await fetch('/api/loyalty/request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ store, phone, name }),
+        });
+    } catch {
+        throw new Error('No se pudo enviar la solicitud. Revisa tu conexión.');
+    }
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.error || 'No se pudo enviar la solicitud. Inténtalo de nuevo.');
+    return data as { token: string; card_token: string };
+};
+
+export interface StampRequestStatus {
+    status: LoyaltyStampRequest['status'];
+    stamps: number;
+    goal: number;
+    card_token: string;
+}
+
+export const getStampRequestStatus = async (token: string): Promise<StampRequestStatus | null> => {
+    const { data, error } = await client().rpc('loyalty_request_status', { request_token: token });
+    if (error) throw new Error(error.message);
+    return (Array.isArray(data) ? data[0] : data) ?? null;
+};
+
+export interface LoyaltyCard {
+    name: string | null;
+    stamps: number;
+    goal: number;
+    rewards_redeemed: number;
+    // A request still waiting for the business
+    pending: boolean;
+}
+
+export const getLoyaltyCard = async (store: string, card: string): Promise<LoyaltyCard | null> => {
+    const { data, error } = await client().rpc('loyalty_card', { store, card });
+    if (error) throw new Error(error.message);
+    return (Array.isArray(data) ? data[0] : data) ?? null;
+};
 
 // "56912345678" → "+56 9 1234 5678"; other countries as they come
 export const formatPhone = (digits: string) => {
@@ -148,8 +229,6 @@ export const formatPhone = (digits: string) => {
     return chile ? `+56 ${chile[1]} ${chile[2]} ${chile[3]}` : `+${digits}`;
 };
 
-// Link that opens a chat with the business with "sellos" typed: sending it joins the loyalty program
-export const LOYALTY_JOIN_MESSAGE = 'Hola, quiero ver mis SELLOS';
-
-export const loyaltyJoinLink = (number: string) =>
-    `https://wa.me/${number.replace(/\D/g, '')}?text=${encodeURIComponent(LOYALTY_JOIN_MESSAGE)}`;
+// Public page where customers ask for stamps and see their card; the counter QR points here
+export const loyaltyLandingUrl = (store: string) =>
+    `${window.location.origin}${window.location.pathname}#/sellos/${store}`;

@@ -349,7 +349,7 @@ const LoyaltyCard: React.FC<{ profile: Profile | null; connection: WhatsAppConne
                 <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"><GiftIcon /></span>
                 <div>
                     <h2 id="loyalty-title" className="text-sm font-semibold text-fg">Sistema de lealtad<FeatureTag>Con API</FeatureTag></h2>
-                    <p className={`${hintClass} mt-0.5`}>Tarjeta de sellos por WhatsApp: cada compra suma un sello y al completarla tu cliente gana un premio. Un asistente en el número conectado inscribe a tus clientes y les responde; los sellos se guardan en tu base.</p>
+                    <p className={`${hintClass} mt-0.5`}>Tarjeta de sellos: el cliente pide el sello con el QR de la caja y te llega por WhatsApp, desde el número conectado, para que lo valides con un botón. Los sellos se guardan en tu base.</p>
                 </div>
             </div>
             <p className="mt-4 flex items-center gap-2 text-sm text-fg-muted">
