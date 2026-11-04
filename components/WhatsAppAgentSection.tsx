@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { PageHeader } from './AppShell.tsx';
 import { ChatIcon, CheckIcon, CopyIcon } from './Icons.tsx';
 import { buttonClass, cardClass, errorBoxClass, successBoxClass } from './ui.ts';
 import * as supabaseService from '../services/supabaseService.ts';
@@ -24,8 +23,9 @@ const remaining = (expiresAt: string, now: number) => {
 };
 
 // Links the business's WhatsApp numbers to its account: a one-time code generated here and sent to the
-// agent by WhatsApp. Linked numbers can then change the menu by chatting with the agent.
-const WhatsAppAgentPage: React.FC = () => {
+// agent by WhatsApp. Linked numbers can then change the menu by chatting with the agent. A section of the
+// WhatsApp page.
+const WhatsAppAgentSection: React.FC = () => {
     const [links, setLinks] = useState<WhatsAppLink[]>([]);
     const [loading, setLoading] = useState(true);
     const [unavailable, setUnavailable] = useState(false);
@@ -115,11 +115,11 @@ const WhatsAppAgentPage: React.FC = () => {
     const sendLink = code ? whatsappLink(`Hola, mi código de SmartQR es ${code.code}`) : null;
 
     return (
-        <>
-            <PageHeader
-                title="Agente de WhatsApp"
-                description="Cambia precios, oculta productos o agrega nuevos escribiéndole al agente por WhatsApp, sin entrar al panel."
-            />
+        <section aria-labelledby="agent-title">
+            <h2 id="agent-title" className="text-base font-semibold text-fg">Agente de WhatsApp</h2>
+            <p className="mt-1 mb-4 text-sm text-fg-muted">
+                Cambia precios, oculta productos o agrega nuevos escribiéndole al agente de SmartQR por WhatsApp, sin entrar al panel.
+            </p>
 
             {unavailable ? (
                 <p className={errorBoxClass}>El agente de WhatsApp todavía no está habilitado en SmartQR. Vuelve a intentarlo más tarde.</p>
@@ -201,8 +201,8 @@ const WhatsAppAgentPage: React.FC = () => {
                     </section>
                 </div>
             )}
-        </>
+        </section>
     );
 };
 
-export default WhatsAppAgentPage;
+export default WhatsAppAgentSection;

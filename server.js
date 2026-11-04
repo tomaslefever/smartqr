@@ -1,11 +1,14 @@
 // Servidor de producción de SmartQR: sirve el build de Vite (dist/) y genera /config.js con la
 // configuración de Supabase leída de las variables de entorno al arrancar. Así la misma imagen
-// Docker funciona en cualquier entorno sin recompilar. Solo usa módulos nativos de Node.
+// Docker funciona en cualquier entorno sin recompilar. Además atiende /api/ (WhatsApp y sistema de
+// lealtad, ver server/whatsapp.js). Solo usa módulos nativos de Node.
+import './server/env.js';
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
+import { handleApi, whatsappConfigWarnings } from './server/whatsapp.js';
 
 const DIST_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'dist');
 const PORT = Number(process.env.PORT) || 3000;
@@ -39,6 +42,7 @@ const configJs = `window.__SMARTQR_CONFIG__ = ${JSON.stringify(runtimeConfig)};\
 if (!runtimeConfig.supabaseUrl || !runtimeConfig.supabaseAnonKey) {
     console.warn('ADVERTENCIA: SUPABASE_URL y/o SUPABASE_ANON_KEY no están definidas; la app no podrá conectarse a Supabase.');
 }
+for (const warning of whatsappConfigWarnings()) console.warn(`ADVERTENCIA: ${warning}`);
 
 // dist/ does not change while the container runs, so files are cached in memory after the first read
 const fileCache = new Map();
@@ -75,6 +79,14 @@ function sendText(req, res, status, text) {
 }
 
 const server = http.createServer(async (req, res) => {
+    let url;
+    try {
+        url = new URL(req.url, 'http://localhost');
+    } catch {
+        return sendText(req, res, 400, 'Bad Request');
+    }
+    if (await handleApi(req, res, url)) return;
+
     if (req.method !== 'GET' && req.method !== 'HEAD') {
         res.setHeader('Allow', 'GET, HEAD');
         return sendText(req, res, 405, 'Method Not Allowed');
@@ -82,7 +94,7 @@ const server = http.createServer(async (req, res) => {
 
     let pathname;
     try {
-        pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
+        pathname = decodeURIComponent(url.pathname);
     } catch {
         return sendText(req, res, 400, 'Bad Request');
     }

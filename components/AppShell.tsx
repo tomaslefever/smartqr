@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext.tsx';
 import SettingsModal from './SettingsModal.tsx';
 import StoreQRModal from './StoreQRModal.tsx';
 import ColorModeToggle from './ColorModeToggle.tsx';
-import { ChatIcon, CloseIcon, ColorSwatchIcon, ExternalLinkIcon, HomeIcon, LogoutIcon, MenuIcon, QrCodeIcon, QrMarkIcon, SettingsIcon, TagIcon, ViewGridIcon } from './Icons.tsx';
+import { ChatIcon, CloseIcon, ColorSwatchIcon, ExternalLinkIcon, GiftIcon, HomeIcon, LogoutIcon, MenuIcon, QrCodeIcon, QrMarkIcon, SettingsIcon, TagIcon, ViewGridIcon } from './Icons.tsx';
 import { iconButtonClass } from './ui.ts';
 import { Reveal, usePanelColors } from './effects.tsx';
 import BlurText from './reactbits/BlurText.tsx';
@@ -53,7 +53,11 @@ const SidebarContent: React.FC<{ onOpenSettings: () => void; onOpenQR: () => voi
                 </NavLink>
                 <NavLink to="/whatsapp" className={({ isActive }) => navItemClass(isActive)}>
                     <ChatIcon />
-                    Agente de WhatsApp
+                    WhatsApp
+                </NavLink>
+                <NavLink to="/lealtad" className={({ isActive }) => navItemClass(isActive)}>
+                    <GiftIcon />
+                    Sistema de lealtad
                 </NavLink>
                 <button type="button" onClick={onOpenQR} className={navItemClass(false)}>
                     <QrCodeIcon />

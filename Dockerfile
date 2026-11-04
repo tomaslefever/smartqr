@@ -8,13 +8,14 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# --- Runtime: solo Node, server.js y el build estático ---
+# --- Runtime: solo Node, server.js (con server/) y el build estático ---
 FROM node:22-alpine
 ENV NODE_ENV=production \
     PORT=3000
 WORKDIR /app
 COPY --from=build /app/package.json ./
 COPY --from=build /app/server.js ./
+COPY --from=build /app/server ./server
 COPY --from=build /app/dist ./dist
 USER node
 EXPOSE 3000

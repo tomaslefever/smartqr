@@ -72,6 +72,46 @@ export interface Profile {
   orders_whatsapp?: string | null;
   // Whether the business delivers; otherwise orders are for pickup (or for the table)
   orders_delivery?: boolean;
+  // Loyalty program (stamp card); all missing before supabase/loyalty.sql. Turning it on needs a
+  // WhatsApp connection (a database trigger checks it).
+  loyalty_enabled?: boolean;
+  // Stamps needed for the reward
+  loyalty_goal?: number;
+  loyalty_reward?: string | null;
+  // Connected WhatsApp number (digits) where customers write "sellos"; set by the database
+  loyalty_whatsapp?: string | null;
+}
+
+// The business's WhatsApp Business (Cloud API) number, as the panel sees it: the access token stays on
+// the server (supabase/whatsapp-cloud.sql)
+export interface WhatsAppConnection {
+  phone_number_id: string;
+  waba_id: string;
+  display_phone_number: string | null;
+  verified_name: string | null;
+  // Whether the app is subscribed to the WABA, so messages reach the webhook
+  webhooks_subscribed: boolean;
+  // Warnings from the last save (subscription or number registration that failed)
+  setup_error: string | null;
+  connected_at?: string;
+  updated_at?: string;
+}
+
+// A customer of the loyalty program, identified by their WhatsApp number
+export interface LoyaltyCustomer {
+  id: number;
+  // Country code and digits, e.g. 56912345678
+  phone: string;
+  name: string | null;
+  // Stamps towards the next reward
+  stamps: number;
+  total_stamps: number;
+  rewards_redeemed: number;
+  // 'whatsapp': joined by writing to the business; 'panel': added by the business
+  source: 'panel' | 'whatsapp';
+  // Last message from the customer; free-form replies are only allowed within 24 hours of it
+  last_message_at: string | null;
+  created_at: string;
 }
 
 // 'list': one column of horizontal cards, image on the right. 'grid': two columns on phones (more on

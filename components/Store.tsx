@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom';
 import { Product, Profile, StoreLayout, Theme } from '../types.ts';
 import * as supabaseService from '../services/supabaseService.ts';
-import { SearchIcon, PhoneIcon, MailIcon, LocationMarkerIcon } from './Icons.tsx';
+import { SearchIcon, PhoneIcon, MailIcon, LocationMarkerIcon, GiftIcon } from './Icons.tsx';
+import { loyaltyJoinLink } from '../services/whatsappService.ts';
 import ProductDetailModal from './ProductDetailModal.tsx';
 import OrderSheet, { WhatsAppIcon } from './OrderSheet.tsx';
 import {
@@ -320,6 +321,10 @@ const Store: React.FC = () => {
     };
     const themeStyle = useMemo(() => normalizeThemeStyle(theme), [theme]);
     const layout = supabaseService.storeLayoutOf(profile);
+    // Loyalty program: the button opens WhatsApp with "sellos" typed, which joins the customer
+    const loyaltyLink = profile?.loyalty_enabled && profile.loyalty_whatsapp && profile.loyalty_reward
+        ? loyaltyJoinLink(profile.loyalty_whatsapp)
+        : null;
 
     // Avoid flashing the default style before the business's theme is known
     if (loading) {
@@ -374,6 +379,25 @@ const Store: React.FC = () => {
                         ))}
                     </div>
                 </div>
+
+                {loyaltyLink && (
+                    <div className="mb-8 flex flex-col items-center gap-3 rounded-lg border border-[color:var(--store-accent-soft)] bg-[color:var(--store-card)] p-4 text-center shadow-sm sm:flex-row sm:text-left">
+                        <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[color:var(--store-accent-soft)] text-[color:var(--store-accent)]"><GiftIcon /></span>
+                        <div className="min-w-0 flex-1">
+                            <p className="font-semibold text-[color:var(--store-text)]">Junta {profile?.loyalty_goal ?? 10} sellos y llévate: {profile?.loyalty_reward}</p>
+                            <p className="text-sm text-[color:var(--store-muted)]">Cada compra suma un sello. Inscríbete gratis por WhatsApp y consulta cuántos llevas.</p>
+                        </div>
+                        <a
+                            href={loyaltyLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex flex-shrink-0 items-center gap-2 rounded-full bg-[color:var(--store-accent)] px-4 py-2 text-sm font-semibold text-[color:var(--store-on-accent)] shadow transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--store-accent)] focus-visible:ring-offset-2"
+                        >
+                            <WhatsAppIcon />
+                            Ver mis sellos
+                        </a>
+                    </div>
+                )}
 
                 {!userId || products.length === 0 && searchTerm === '' ? (
                      <div className="text-center text-[color:var(--store-muted)] py-12">
