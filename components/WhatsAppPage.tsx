@@ -240,8 +240,14 @@ interface OrdersCardProps {
     onSaved: (profile: Profile) => void;
 }
 
-// The customer builds the order in the store and WhatsApp opens with the message for this number. It works
-// with any WhatsApp number (wa.me link), connected to the API or not.
+// The customer builds the order in the store and WhatsApp opens with the message for this number: a wa.me
+// link, no API. The order is a plain chat message the business answers from the WhatsApp app on its phone,
+// so the number must not be the one connected to the Cloud API (that one stops working in the app).
+
+const FeatureTag: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+    <span className="ml-2 inline-flex items-center rounded-full bg-muted px-2 py-0.5 align-middle text-[11px] font-medium text-fg-muted">{children}</span>
+);
+
 const OrdersCard: React.FC<OrdersCardProps> = ({ profile, connection, onSaved }) => {
     const supported = !!profile && 'orders_enabled' in profile;
     const [enabled, setEnabled] = useState(profile?.orders_enabled === true);
@@ -289,8 +295,8 @@ const OrdersCard: React.FC<OrdersCardProps> = ({ profile, connection, onSaved })
         <section className={`${cardClass} flex flex-col p-5`} aria-labelledby="orders-title">
             <div className="flex items-start justify-between gap-4">
                 <div>
-                    <h2 id="orders-title" className="text-sm font-semibold text-fg"><label htmlFor="orders_enabled">Pedir por WhatsApp</label></h2>
-                    <p className={`${hintClass} mt-0.5`}>Tus clientes arman su pedido en la carta y te llega por WhatsApp, listo para confirmar.</p>
+                    <h2 id="orders-title" className="text-sm font-semibold text-fg"><label htmlFor="orders_enabled">Pedir por WhatsApp</label><FeatureTag>Sin API</FeatureTag></h2>
+                    <p className={`${hintClass} mt-0.5`}>Tus clientes arman su pedido en la carta y te llega como un mensaje directo a tu WhatsApp, listo para confirmar. No necesita conexión.</p>
                 </div>
                 <Switch id="orders_enabled" checked={enabled} onChange={touch(setEnabled)} disabled={!supported} />
             </div>
@@ -302,11 +308,11 @@ const OrdersCard: React.FC<OrdersCardProps> = ({ profile, connection, onSaved })
                     <div>
                         <label htmlFor="orders_whatsapp" className={labelClass}>Número que recibe los pedidos</label>
                         <input type="tel" id="orders_whatsapp" value={number} onChange={(e) => touch(setNumber)(e.target.value)} placeholder="56912345678" className={`${inputClass} mt-1.5`} />
-                        <p className={`${hintClass} mt-1.5`}>Con código de país. Puede ser cualquier número de WhatsApp, conectado a la API o no.</p>
-                        {isValidWhatsAppNumber(connectedNumber) && normalizeWhatsAppNumber(number) !== connectedNumber && (
-                            <button type="button" onClick={() => touch(setNumber)(connectedNumber)} className={`${buttonClass('ghost', 'sm')} mt-1 -ml-3`}>
-                                Usar el número conectado ({connection?.display_phone_number})
-                            </button>
+                        <p className={`${hintClass} mt-1.5`}>Con código de país. Es el WhatsApp donde atiendes los pedidos, en la app de tu teléfono.</p>
+                        {isValidWhatsAppNumber(connectedNumber) && normalizeWhatsAppNumber(number) === connectedNumber && (
+                            <p className={`${warningBoxClass} mt-2`}>
+                                Este es el número conectado a la API: ahí los pedidos no llegan a la app de tu teléfono (salvo en modo coexistencia). Usa el WhatsApp donde atiendes a tus clientes.
+                            </p>
                         )}
                     </div>
                     <div className="flex items-start justify-between gap-4">
@@ -342,8 +348,8 @@ const LoyaltyCard: React.FC<{ profile: Profile | null; connection: WhatsAppConne
             <div className="flex items-start gap-3">
                 <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"><GiftIcon /></span>
                 <div>
-                    <h2 id="loyalty-title" className="text-sm font-semibold text-fg">Sistema de lealtad</h2>
-                    <p className={`${hintClass} mt-0.5`}>Tarjeta de sellos por WhatsApp: cada compra suma un sello y al completarla tu cliente gana un premio.</p>
+                    <h2 id="loyalty-title" className="text-sm font-semibold text-fg">Sistema de lealtad<FeatureTag>Con API</FeatureTag></h2>
+                    <p className={`${hintClass} mt-0.5`}>Tarjeta de sellos por WhatsApp: cada compra suma un sello y al completarla tu cliente gana un premio. Un asistente en el número conectado inscribe a tus clientes y les responde; los sellos se guardan en tu base.</p>
                 </div>
             </div>
             <p className="mt-4 flex items-center gap-2 text-sm text-fg-muted">
@@ -414,7 +420,7 @@ const WhatsAppPage: React.FC = () => {
 
                     <div>
                         <h2 className="text-base font-semibold text-fg">Funciones</h2>
-                        <p className="mt-1 mb-4 text-sm text-fg-muted">Actívalas según lo que necesite tu negocio.</p>
+                        <p className="mt-1 mb-4 text-sm text-fg-muted">Actívalas según lo que necesite tu negocio. Los pedidos funcionan con cualquier WhatsApp; el sistema de lealtad necesita la conexión de arriba.</p>
                         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                             <OrdersCard profile={profile} connection={connection} onSaved={setProfile} />
                             <LoyaltyCard profile={profile} connection={connection} />

@@ -67,8 +67,8 @@ Otros comandos:
 
 El menú **WhatsApp** del panel reúne la conexión del número del negocio y sus funciones, que se activan por separado:
 
-- **Pedir por WhatsApp**: los clientes arman su pedido en la carta y se abre WhatsApp con el mensaje para el número que indiques. Usa un link `wa.me`, así que funciona con cualquier número, conectado a la API o no.
-- **Sistema de lealtad** (menú propio): una tarjeta de sellos. Se puede entrar siempre, pero para activarlo hay que tener WhatsApp conectado (la base de datos lo exige). Los clientes se inscriben escribiendo "sellos" al número conectado (la carta muestra un botón que lo deja escrito). El webhook los registra con su número y les responde cuántos sellos llevan. El negocio les suma sellos y canjea premios desde el panel, y cada movimiento les llega por WhatsApp. Desconectar WhatsApp apaga el programa.
+- **Pedir por WhatsApp** (sin API): los clientes arman su pedido en la carta y se abre WhatsApp con el mensaje para el número que indiques. Es un link `wa.me`: el pedido llega como un mensaje directo y el negocio lo atiende desde la app de su teléfono. Por eso no conviene usar el número conectado a la Cloud API, que deja de funcionar en la app (el panel lo advierte).
+- **Sistema de lealtad** (con API, menú propio): una tarjeta de sellos. Se puede entrar siempre, pero para activarlo hay que tener WhatsApp conectado (la base de datos lo exige). Los clientes se inscriben escribiendo "sellos" al número conectado (la carta muestra un botón que lo deja escrito). El webhook los registra con su número y les responde cuántos sellos llevan. El negocio les suma sellos y canjea premios desde el panel, y cada movimiento les llega por WhatsApp. Desconectar WhatsApp apaga el programa.
 - **Agente de WhatsApp**: el agente de [smart-qr-mcp](#servidor-mcp) para cambiar la carta por chat.
 
 ### Configurar la app de Meta (una vez)
